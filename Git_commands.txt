@@ -1,0 +1,17 @@
+ 
+# ----- Add and commit file to .git
+
+# add all modified files to .git
+git add .a
+
+# commit all files with commit message
+git commit -m "Commit message"
+
+# ----- distant git
+
+# add distant git
+git remote <name> <url>
+
+# push to distant git
+git push <remoteName> <branch>
+
