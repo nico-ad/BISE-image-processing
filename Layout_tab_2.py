@@ -444,15 +444,24 @@ class HelperTab2(QWidget):
         bar.setFormat(f"{done:,} / {total:,} (%p%)")
         
         if folder_idx not in self.folder_start_times:
-            self.folder_start_times[folder_idx] = QElapsedTimer()
+            timer = QElapsedTimer()
+            timer.start()
+            self.folder_start_times[folder_idx] = timer
         
         elapsed_ms = self.folder_start_times[folder_idx].elapsed()
         elapsed_s = elapsed_ms / 1000
         
         rate = done / elapsed_s if elapsed_ms else 0
         remaining = int((total - done) / rate) if rate else 0
+
+        if remaining > 3600:
+            remaining_str = f"{remaining // 3600}h {(remaining % 3600) // 60}min  {(remaining % 60)}s"
+        elif remaining > 60:
+            remaining_str = f"{remaining // 60}min {(remaining % 60)}s"
+        else:
+            remaining_str = f"{remaining}s"
         
-        eta.setText(f"Remaining time : {remaining}s")
+        eta.setText(f"Remaining time : {remaining_str}")
         
         if percent == 100:
             bar.setStyleSheet("""
