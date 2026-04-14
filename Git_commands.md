@@ -16,7 +16,8 @@ git commit -m "Commit message"
 
 ### Distant git commands
 
-** How to link local project to gitlab repository**
+**How to link local project to gitlab repository**
+Do this four steps one time
 
 *1. generate ssh key*
 ```
