@@ -38,5 +38,7 @@ ssh -T git@gitlab.com
 git remote <name> <url>
 
 # push to distant git
-git push <remoteName> <branch>
+git push <remote_name> <distant_branch>
 
+# pull from distant git
+git pull <remote_name> <local_branch>
