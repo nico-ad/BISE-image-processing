@@ -1,5 +1,5 @@
  
-# Lean how to use git commands
+# Learn how to use git commands
 
 ## Local git commands
 ### Add and commit file to local git
