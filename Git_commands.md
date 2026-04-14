@@ -21,23 +21,24 @@ Do this four steps one time
 
 *1. generate ssh key*
 ```
-ssh-keygen -t ed25519 -C "<put comment>"
+ssh-keygen -t ed25519 -C "<put_comment>"
 ```
-/home/<user_name>/.ssh/gitlab_ed25519 # store public and private key on .ssh file
+```/home/<user_name>/.ssh/gitlab_ed25519``` to store public and private key on .ssh file
 >do not need passphrase, click on "Enter" two times
 
 *2. copy/paste public key on gitlab project*
-    - connect to gitlab account
-    - click on avatar icon on top right corner
-    - click on "Préférences"
-    - left headband, click on "Access" -> "SSH key"
-    - on local terminal, write
+- connect to gitlab account
+- click on avatar icon on top right corner
+- click on "Preferences"
+- left headband, click on "Access" -> "SSH keys"
+- on local terminal, write
+
 ```
 vi /home/<user_name>/.ssh/gitlab_ed25519.pub
 ```
-    - copy paste : ssh-ed25519 <ssh_key>
-    - on gitlab,
-    - add new key and remove deadtime limit
+- copy paste : ```ssh-ed25519 <ssh_key>```
+- on gitlab,
+- add new key and remove deadtime limit
 
 *3. Start ssh agent and add keygen*
 ```
@@ -46,17 +47,23 @@ ssh-add ~/.ssh/gitlab_ed25519
 ```
 
 *4. Test connection to gitlab site*
-```
+```bash
 ssh -T git@gitlab.com
 <Welcome to GitLab, @user_name !>
 ```
 
 
-# add distant git
+### add distant git
+```bash
 git remote <name> <url>
+```
 
-# push to distant git
+### push to distant git
+```bash
 git push <remote_name> <distant_branch>
+```
 
-# pull from distant git
+### pull from distant git
+```bash
 git pull <remote_name> <local_branch>
+```
