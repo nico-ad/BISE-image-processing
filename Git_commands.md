@@ -9,6 +9,11 @@
 git add .a
 ```
 
+**add specific file(s) to local git**
+```
+git add <file_1> <file_2>
+```
+
 **commit all files with commit message**
 ```
 git commit -m "Commit message"
