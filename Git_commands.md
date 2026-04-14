@@ -23,7 +23,7 @@ git commit -m "Commit message"
 ssh-keygen -t ed25519 -C "<put comment>"
 ```
 /home/<user_name>/.ssh/gitlab_ed25519 # store public and private key on .ssh file
->do not need passphrase
+>do not need passphrase, click on "Enter" two times
 
 *2. copy/paste public key on gitlab project*
     - connect to gitlab account
@@ -35,7 +35,7 @@ ssh-keygen -t ed25519 -C "<put comment>"
 vi /home/<user_name>/.ssh/gitlab_ed25519.pub
 ```
     - copy paste : ssh-ed25519 <ssh_key>
-    - on gitlab, 
+    - on gitlab,
     - add new key and remove deadtime limit
 
 *3. Start ssh agent and add keygen*
@@ -47,8 +47,9 @@ ssh-add ~/.ssh/gitlab_ed25519
 *4. Test connection to gitlab site*
 ```
 ssh -T git@gitlab.com
-```
 <Welcome to GitLab, @user_name !>
+```
+
 
 # add distant git
 git remote <name> <url>
