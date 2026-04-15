@@ -398,6 +398,7 @@ class HelperTab4(QWidget):
         return sorted(list(result))
 
 class ImageViewer(QWidget):
+
     def __init__(self, container_widget, pixel_size):
         super().__init__()
         
@@ -426,7 +427,7 @@ class ImageViewer(QWidget):
                 "hspace": 0.0,
             }
         }
-        
+    
     # display coordinates on mouse
     def _on_move(self, event, ax, img, status_label):
         
@@ -485,7 +486,7 @@ class ImageViewer(QWidget):
         self.canvases.clear()
         self.toolbars.clear()
 
-    def _order_of_magnitude(number, nearest_power_of_three=False):
+    def _order_of_magnitude(self, number, nearest_power_of_three=False):
         """ Give magnitude order of a number """
 
         if not isinstance(number, (int, float)):
@@ -588,6 +589,8 @@ class ImageViewer(QWidget):
                 norm = None
             else:
                 colors = cm.get_cmap("plasma")
+            
+            legend_elements = []
 
             # ----- scatter plot position
             for i, lbl in enumerate(data_dict["label"]):
@@ -606,6 +609,8 @@ class ImageViewer(QWidget):
         
                 # ----- display vectors
                 if "vx" in data_dict.keys() and "vy" in data_dict.keys():
+
+                    from matplotlib.patches import FancyArrowPatch
                     
                     data_arrow_x = data_dict["vx"][i][indices] # * data_dict["unit"]
                     data_arrow_y = data_dict["vy"][i][indices] # * data_dict["unit"]
@@ -629,14 +634,20 @@ class ImageViewer(QWidget):
                         # label=f"label {int(lbl)}",
                     )
 
-                    mag_order = _order_of_magnitude(max(norm))
-                    print(mag_order)
-                    self.ax.quiverkey(
+                    mag_order = self._order_of_magnitude(max(norm))
+                    print(max(norm), mag_order)
+                    qk = self.ax.quiverkey(
                         Q, X=0.9, Y=0.9,
                         U=1*mag_order,
-                        label=f"1 m/s",
-                        labelpos="E",
+                        label=f"{1*mag_order} m/s",
+                        # labelpos="E",
+                        # color=colors(i),
                     )
+
+                    legend_elements.append(
+                        FancyArrowPatch((0.1, 0.5), (0.9, 0.8), color=colors(i),
+                                   mutation_scale=100, arrowstyle="-|>")
+                        )
 
         # sm = plt.cm.ScalarMappable(
         #     cmap=colors,
@@ -661,7 +672,9 @@ class ImageViewer(QWidget):
         self.ax.set_xticklabels([f"{x_tick*self.pixel_size:.1f}" for x_tick in x_ticks], fontsize=self.dict_fontsize["ticks"])
         self.ax.set_yticklabels([f"{y_tick*self.pixel_size:.3f}" for y_tick in y_ticks], fontsize=self.dict_fontsize["ticks"])
         
-        # self.ax.legend(fontsize=self.dict_fontsize["legend"])
+        self.ax.legend(
+            handles=legend_elements, #[f"{1*mag_order} m/s"]*len(legend_elements),
+            fontsize=self.dict_fontsize["legend"])
         
         self.fig.tight_layout()
         
