@@ -590,7 +590,7 @@ class ImageViewer(QWidget):
                     data_arrow_x = data_dict["vx"][i][indices] # * data_dict["unit"]
                     data_arrow_y = data_dict["vy"][i][indices] # * data_dict["unit"]
 
-                    self.ax.quiver(
+                    Q = self.ax.quiver(
                         data_all[:, 0], data_all[:, 1], # [m, mm, px]
                         data_arrow_x, data_arrow_y, # [m/s, mm/s, px/s]
                         angles="xy",
@@ -600,6 +600,13 @@ class ImageViewer(QWidget):
                         alpha=0.6,
                         width=0.03,
                         # label=f"label {int(lbl)}",
+                    )
+
+                    self.ax.quiverkey(
+                        Q, X=0.9, Y=0.9,
+                        U=1,
+                        label=f"1 m/s",
+                        labelpos="E",
                     )
 
         # sm = plt.cm.ScalarMappable(
