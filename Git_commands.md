@@ -63,6 +63,11 @@ ssh -T git@gitlab.com
 git remote <name> <url>
 ```
 
+### clone existing distant git
+```bash
+git clone <url_of_the_project>
+```
+
 ### push to distant git
 ```bash
 git push <remote_name> <distant_branch>
