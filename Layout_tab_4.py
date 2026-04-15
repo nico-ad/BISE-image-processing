@@ -485,6 +485,26 @@ class ImageViewer(QWidget):
         self.canvases.clear()
         self.toolbars.clear()
 
+    def _order_of_magnitude(number, nearest_power_of_three=False):
+        """ Give magnitude order of a number """
+
+        if not isinstance(number, (int, float)):
+            number = np.array(number)
+        
+        if number == 0:
+            return 0
+        
+        abs_number = np.abs(number)
+        exponent = np.floor(np.log10(abs_number))
+
+        if nearest_power_of_three:
+            if exponent < 0.0:
+                return 10 ** (3 ** round((exponent - exponent%3) / 3))
+            if exponent > 0.0:
+                return 10 ** (3 ** round((exponent - exponent%3) / 3))
+        
+        return 10 ** exponent
+
     def _display(self, data_list: list, **kwargs):
         """ Diplay data even if 1dD or 2D data """
         
@@ -590,21 +610,30 @@ class ImageViewer(QWidget):
                     data_arrow_x = data_dict["vx"][i][indices] # * data_dict["unit"]
                     data_arrow_y = data_dict["vy"][i][indices] # * data_dict["unit"]
 
+                    norm = np.sqrt((
+                            data_dict["vx"][i][indices]**2 +
+                            data_dict["vx"][i][indices]**2
+                            ))
+                    data_arrow_x = data_dict["vx"][i][indices] / norm
+                    data_arrow_y = data_dict["vy"][i][indices] / norm
+
                     Q = self.ax.quiver(
                         data_all[:, 0], data_all[:, 1], # [m, mm, px]
                         data_arrow_x, data_arrow_y, # [m/s, mm/s, px/s]
                         angles="xy",
-                        scale=1e-6,
+                        scale=1,
                         scale_units="xy",
                         color=colors(i),
                         alpha=0.6,
-                        width=0.03,
+                        width=0.02,
                         # label=f"label {int(lbl)}",
                     )
 
+                    mag_order = _order_of_magnitude(max(norm))
+                    print(mag_order)
                     self.ax.quiverkey(
                         Q, X=0.9, Y=0.9,
-                        U=1,
+                        U=1*mag_order,
                         label=f"1 m/s",
                         labelpos="E",
                     )
