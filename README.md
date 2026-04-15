@@ -1,8 +1,7 @@
 # Images analysis
 
 
-
-## Getting started
+## Getting started with GitLab
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.
 
@@ -19,6 +18,30 @@ git remote add origin https://gitlab.com/particles-resuspension/monte-carlo-resu
 git branch -M main
 git push -uf origin main
 ```
+
+## Getting started with VSCode
+
+Use python version 3.12.3
+
+### Install python libraries
+
+Connect yout visualStudio Code folder to virtual environment
+Download Requierements.txt to install python libraries with the following command in terminal
+```
+pip install Requierements.txt
+```
+
+### Launch the program
+
+On the terminal use the folling command to launch the program
+
+```
+python Test_application.py
+```
+
+## Launch the program with .exe file
+
+Still in developpement
 
 ## Integrate with your tools
 
