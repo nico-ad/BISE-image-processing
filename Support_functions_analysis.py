@@ -1078,7 +1078,7 @@ class ParticleAnalyser(QObject):
     
     def Assign_ID_ROI(
         dataframe: pd.DataFrame = None,
-        do_plot: bool = True,
+        do_plot: bool = False,
         language: str = "en",
         unit: str = "px",
         labels_used: str = "global",
@@ -1125,7 +1125,7 @@ class ParticleAnalyser(QObject):
         def _assign_global_labels(
                 df: pd.DataFrame = None,
                 max_dist: int = None,
-                do_plot: bool = True,
+                do_plot: bool = False,
         ):
             
             df = df.copy()
