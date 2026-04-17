@@ -53,8 +53,8 @@ class ParticleAnalysisApp(QMainWindow):
         self.path_images = []
         self.current_image_index = 0
         
-        ui_path = Path(__file__).parent / "ParticlesAnalysis.ui"
-        uic.loadUi(ui_path, self)
+        # ui_path = Path(__file__).parent / "ParticlesAnalysis.ui"
+        # uic.loadUi(ui_path, self)
         
         self.setWindowTitle("Analysis of particles images from BISE")
         

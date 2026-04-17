@@ -1071,6 +1071,7 @@ class VisualizationFunctions():
                 "run": [i],
                 # "fit": [fit_func],
                 "x_log": False,
+                "nomalize": True,
                 "x_unit": unit_factor_x,
                 "y_unit": unit_factor_y,
                 "z_unit": unit_factor_z,
@@ -4044,8 +4045,8 @@ class VisualizationFunctions():
             
             # ----- filtering
             mask = (
-                data["frame"].isin(frames) &
-                data["label"].isin(labels)
+                data["frame"].isin(selected_frames) &
+                data["label"].isin(selected_labels)
             )
             
             sub_df = data.loc[
@@ -4107,8 +4108,8 @@ class VisualizationFunctions():
                 "vy": [group["vy"].to_numpy() for _, group in grouped_label],
                 "label": list(group["label"].unique() for _, group in grouped_label),
                 "unit": unit_factor,
-                "x_label": f"X [{unit_label_x}]",
-                "y_label": f"Y [{unit_label_y}]",
+                "x_label": f"unit_label_x",
+                "y_label": f"unit_label_y",
             }
             results.append(data_dict)
             

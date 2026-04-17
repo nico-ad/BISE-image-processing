@@ -730,14 +730,6 @@ class ParticleAnalyser(QObject):
         
             writer = None
 
-            # print(f"Number of workers : {self.total_num_workers}")
-            # print(f"Number of workers : {pool._processes}")
-
-            # print(f"Is pickable worker_wrapper: {_pickable(_worker_wrapper)}")
-            # print(f"Is pickable load_image_core: {_pickable(_load_image_core)}")
-            # print(f"Is pickable process_image_core: {_pickable(_process_image_core)}")
-            # sys.exit(0)
-
             for index, df in pool.imap_unordered(
                 _worker_wrapper,
                 args_list,
@@ -1078,7 +1070,7 @@ class ParticleAnalyser(QObject):
     
     def Assign_ID_ROI(
         dataframe: pd.DataFrame = None,
-        do_plot: bool = True,
+        do_plot: bool = False,
         language: str = "en",
         unit: str = "px",
         labels_used: str = "global",
@@ -1125,7 +1117,7 @@ class ParticleAnalyser(QObject):
         def _assign_global_labels(
                 df: pd.DataFrame = None,
                 max_dist: int = None,
-                do_plot: bool = True,
+                do_plot: bool = False,
         ):
             
             df = df.copy()
@@ -1154,9 +1146,7 @@ class ParticleAnalyser(QObject):
                     cost[cost > max_dist] = 1e4
                 
                 # display cost matrix
-                if do_plot and False:
-
-                    print(f"DO PLOT")
+                if do_plot:
                     
                     _, ax = plt.subplots()
                     ax.imshow(cost)
@@ -1568,7 +1558,7 @@ class ParticleAnalyser(QObject):
         return (frame_id, result)
 
     # @staticmethod
-    def _compute_coordination_number(df: pd.DataFrame = None, tol: float = 1e-6) -> pd.DataFrame:
+    def _compute_coordination_number(df: pd.DataFrame = None, tol: float = 1) -> pd.DataFrame:
         """ Compute coordination number for each particle """
         
         df = df.copy()
