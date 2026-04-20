@@ -1534,38 +1534,33 @@ class Uncertainties():
             
         return J
 
-class VideoMaker():
+class VideoMaker(QObject):
+
+    progress_video_creation = pyqtSignal(int)
+    finished = pyqtSignal()
+
     def __init__(self, parent=None):
+        super(VideoMaker, self).__init__(parent)
         self.parent = parent
         
-    
     def Make_video(
         self,
         load_images,
         path_save,
         video_name,
-        images_range,
+        images_range: str|np.ndarray|list = [0, 34939],
         frame_rate=30,
         format_video=".avi",
         do_display_time:bool=True,
         rotate:int=0,
         freq: float = None,
     ):
-        # plt.use("Agg")
         
-        # if images_range is not None:
-        #     if isinstance(images_range, str) and images_range == "all":
-        #         a = 2
-        #     elif isinstance(images_range, list) and len(images_range) != 2:
-        #         msg = f"length of image_range is different from 2 : {len(images_range)}"
-        #         raise TypeError(msg)
-        images_range = [0, 34939]
-        
-        if not Path(load_images).exists:
+        if not Path(load_images).exists():
             msg = "File to load images do not exists"
             raise FileExistsError(msg)
         
-        if not Path(path_save).exists:
+        if not Path(path_save).exists():
             msg = "File to save video do not exists"
             raise FileExistsError(msg)
 
@@ -1575,7 +1570,10 @@ class VideoMaker():
             if Path(file).is_file() and file.suffix.lower() in valid_extensions
         ]
         list_images = list(Tcl().call("lsort", "-dict", list_images))
-        list_images = list_images[images_range[0] : images_range[1]]
+        # list_images = list_images[images_range[0] : images_range[1]]
+
+        total = len(list_images)
+        print(f"Total images : {total}")
 
         img = np.array(Image.open(Path(list_images[0])))
         if img.ndim == 3:  # Convert color image to inverted grayscale
@@ -1585,18 +1583,20 @@ class VideoMaker():
             )
         height, width = img.shape
 
-        fourcc = cv2.VideoWriter_fourcc(*"XVID")
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
         # if video_name is None:
         #     video_name = f"{str(path_save).split('\\')[-2]}_{str(path_save).split('\\')[-1]}_{str(load_images).split('\\')[-1]}_images_{images_range[0]}_{images_range[1]}.avi"
 
+        print(f"Path to save : {path_save}")
         video_writer = cv2.VideoWriter(
             Path(path_save) / Path(video_name), fourcc, frame_rate, (width, height)
         )
         
-        min, max = images_range
+        min, max = images_range[0], images_range[1]
         # font = ImageFont.truetype("arial.ttf", size=42)
-
-        for curr_img, img_name in zip(list(np.linspace(min, max+1, max-min+2, dtype=np.int16)), list_images):
+        import time
+        import sys
+        for i, (curr_img, img_name) in enumerate(zip(list(np.linspace(min, max+1, max-min+2, dtype=np.int16)), list_images)):
             
             pil_img = Image.open(Path(img_name)).convert("RGB").rotate(rotate, expand=True)
             
@@ -1610,6 +1610,10 @@ class VideoMaker():
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             video_writer.write(img)
 
+            percent = int(((i+1) / total) * 100)
+            self.progress_video_creation.emit(percent)
+
         video_writer.release()
+        self.finished.emit()
 
         print("Videos created")

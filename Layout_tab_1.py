@@ -24,6 +24,7 @@ from PyQt5.QtWidgets import (
     QSplitter,
     QGroupBox,
     QGridLayout,
+    QStackedWidget,
 )
 from PyQt5.QtWidgets import (
     QStyledItemDelegate,
@@ -76,6 +77,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 import ast
+
+from functools import partial
 
 import Support_functions_preview as func_preview
 
@@ -219,12 +222,38 @@ class HelperTab1(QWidget):
         nav_layout.addWidget(self.previous_btn)
         nav_layout.addWidget(self.next_btn)
         
+        # video button
         self.video_btn = QPushButton("Video")
         self.video_btn.setFont(self.parent.font_button)
         self.video_btn.setMinimumHeight(40)
         control_layout.addWidget(self.video_btn)
         self.video_btn.clicked.connect(self._make_video)
         
+        # progress bar video creation
+        self.progress_video_creation = QProgressBar()
+        self.progress_video_creation.setStyleSheet("""
+        QProgressBar {
+            background: rgba(0, 0, 0, 120);
+            color: white;
+            border: none;
+            text-align: center;
+        }
+        QProgressBar::chunck {
+            background-color: #05B8CC;
+            }
+        """)
+        self.progress_video_creation.setValue(0)
+        self.progress_video_creation.hide()
+
+        # # overlay video button + progress bar video creation
+        # overlay_widget = QWidget()
+        # overlay_layout = QVBoxLayout(overlay_widget)
+        # overlay_layout.addWidget(self.video_btn)
+        # overlay_layout.addWidget(self.progress_video_creation)
+
+        # self.stacked_widget = QStackedWidget()
+        # self.stacked_widget.addWidget(overlay_widget)
+
         control_layout.addLayout(nav_layout)
         
         # dial control
@@ -806,21 +835,83 @@ class HelperTab1(QWidget):
             current_params[key] = value
         return current_params
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_overlay()
+
+    def update_overlay(self):
+        """ Adjust progress bar to video button """
+        self.progress_video_creation.setGeometry(self.video_btn.geometry())
+    
     def _make_video(self):
         """ Create video from folders images """
 
+        # set viceo frequency
         freq_acq = self._read_parameters()["frequency acquisition"]
 
+        if len(self.parent.folders_list) == 0:
+            return None
+        
+        # desabled button
+        self.video_btn.setEnabled(False)
+
         for i in range(len(self.parent.folders_list)):
-            
+
             print(f"Path folder : {Path(self.parent.folders_list[i])}")
             print(f"Path video file {Path(self.parent.folders_list[i]).parents[0]}")
-        
-            self.video_Maker.Make_video(
-                load_images=Path(self.parent.folders_list[i]),
-                path_save=Path(self.parent.folders_list[i]).parents[0],
-                video_name="Video",
-                images_range="all",
-                do_display_time=False,
-                freq=freq_acq,
+
+            # show progress bar
+            self.progress_video_creation.setValue(0)
+            self.progress_video_creation.show()
+            self.progress_video_creation.raise_()
+
+            # creat thread for video creation
+            self.thread = QThread()
+
+            # creat VideoMaker instance
+            self.worker = self.video_Maker
+            
+            # connect signals
+            self.worker.progress_video_creation.connect(self.progress_video_creation.setValue)
+            self.worker.finished.connect(self.thread.quit)
+            self.worker.finished.connect(self._on_finished_video_creation)
+
+            # move worker to thread
+            self.worker.moveToThread(self.thread)
+
+            # start video creation
+            self.thread.started.connect(
+                partial(
+                    self.video_Maker.Make_video(
+                    load_images=Path(self.parent.folders_list[i]),
+                    path_save=Path(self.parent.folders_list[i]).parents[0],
+                    video_name="Video.avi",
+                    # images_range="all",
+                    do_display_time=False,
+                    freq=freq_acq,
+                    )
+                )
             )
+            
+            # start thread
+            self.thread.start()
+        
+        # desabled button
+        self.video_btn.setEnabled(True)
+
+        # for i in range(len(self.parent.folders_list)):
+            
+        #     print(f"Path folder : {Path(self.parent.folders_list[i])}")
+        #     print(f"Path video file {Path(self.parent.folders_list[i]).parents[0]}")
+        
+        #     self.video_Maker.Make_video(
+        #         load_images=Path(self.parent.folders_list[i]),
+        #         path_save=Path(self.parent.folders_list[i]).parents[0],
+        #         video_name="Video",
+        #         images_range="all",
+        #         do_display_time=False,
+        #         freq=freq_acq,
+        #     )
+
+    def _on_finished_video_creation(self):
+        self.progress_video_creation.hide()
