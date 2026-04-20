@@ -1009,6 +1009,7 @@ class VisualizationFunctions():
             mask_keys = [
                 "frame", "time", "dt",
                 "coordination",
+                "x", "y", "diameter_mean", "main_path", "name",
                 ]
 
             if isinstance(frames, int):
@@ -1079,6 +1080,38 @@ class VisualizationFunctions():
                 "y_label": unit_label_y,
                 "z_label": unit_label_z,
             }
+
+            # display 
+            if True:
+
+                x = grouped_frames["x"]
+                y = grouped_frames["y"]
+                d = grouped_frames["diameter_mean"]
+
+                print(len(x), len(y), len(d))
+                
+                r_max = d.max() / 2
+                print(f"R_max = {r_max}")
+
+                _, ax = plt.subplots()
+
+                name = Path(
+                df['main_path'].iloc[0],
+                df['name'].iloc[0]
+                )
+                img = self._load_image(name, invert=False)
+                ax.imshow(img, cmap="gray")
+                
+                # plot coords + radius 
+                for pt1, pt2, di in zip(x, y, d):
+                    # print(pt1, pt2, di)
+                    ax.plot(pt1, pt2)
+                    ax.add_patch(plt.Circle((pt1, pt2), di/2), color="b", fill=False)
+
+                    # plot research radius
+                    ax.add_patch(plt.Circle((pt1, pt2), r_max), color="k", fill=False)
+                
+                plt.show()
 
             result.append(data_dict)
         

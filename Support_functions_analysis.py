@@ -1558,13 +1558,13 @@ class ParticleAnalyser(QObject):
         return (frame_id, result)
 
     # @staticmethod
-    def _compute_coordination_number(df: pd.DataFrame = None, tol: float = 1) -> pd.DataFrame:
+    def _compute_coordination_number(df: pd.DataFrame = None, tol: float = 1, do_plot: bool = True) -> pd.DataFrame:
         """ Compute coordination number for each particle """
         
         df = df.copy()
         df["coordination"] = 0
         
-        for frame_id, group in df.groupby("frame"):
+        for _, group in df.groupby("frame"):
 
             pts = group[["x", "y"]].values
             d = group["diameter_mean"].values
@@ -1582,6 +1582,28 @@ class ParticleAnalyser(QObject):
                 neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i]+d[j])/2 + tol)]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
+        
+            # display 
+            if do_plot:
+
+                _, ax = plt.subplots()
+
+                name = Path(
+                df['main_path'].iloc[0],
+                df['name'].iloc[0]
+                )
+                img = _load_image_core(name, invert=False)
+                ax.imshow(img, cmap="gray")
+                
+                # plot coords + radius 
+                for pt, di in zip(pts, d):
+                    ax.plot(pt[0], pt[1])
+                    ax.add_patch(plt.Circle((pt[0], pt[1]), di/2), color="b", fill=False)
+
+                    # plot research radius
+                    ax.add_patch(plt.Circle((pt[0], pt[1]), r_max), color="k", fill=False)
+                
+                plt.show()
             
         return df
     
