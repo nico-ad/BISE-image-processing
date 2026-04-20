@@ -1175,13 +1175,13 @@ class ParticleAnalyser(QObject):
 
                     ax.set_xticklabels([f"{x_tick:.0f}" for x_tick in x_ticks])#, fontsize=ParticleAnalyser.dict_fontsize["ticks"])
                     if language == "fr":
-                        ax.set_xlabel("Particles detectées à la l'image précédente")#, fontsize=ParticleAnalyser.dict_fontsize["label"])
+                        ax.set_xlabel("Particles detectées à l'image précédente")#, fontsize=ParticleAnalyser.dict_fontsize["label"])
                     if language == "en":
                         ax.set_xlabel("Detected particles in previous frame")#, fontsize=ParticleAnalyser.dict_fontsize["label"])
                     
                     ax.set_yticklabels([f"{y_tick:.0f}" for y_tick in y_ticks])#, fontsize=ParticleAnalyser.dict_fontsize["ticks"])
                     if language == "fr":
-                        ax.set_ylabel("Particles detectées à la l'image courante")#, fontsize=ParticleAnalyser.dict_fontsize["label"])
+                        ax.set_ylabel("Particles detectées à l'image courante")#, fontsize=ParticleAnalyser.dict_fontsize["label"])
                     if language == "en":
                         ax.set_ylabel("Detected particles in current frame")#, fontsize=ParticleAnalyser.dict_fontsize["label"])
                     

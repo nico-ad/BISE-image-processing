@@ -647,7 +647,7 @@ class VisualizationFunctions():
         height:int=None,
         angle:int=None,
         center:list|np.ndarray=None,
-        ):
+        ) -> np.ndarray:
         
         if angle in [90, 270]:
             new_w, new_h = height, width
@@ -1084,33 +1084,38 @@ class VisualizationFunctions():
             # display 
             if True:
 
-                x = grouped_frames["x"]
-                y = grouped_frames["y"]
-                d = grouped_frames["diameter_mean"]
-
-                print(len(x), len(y), len(d))
-                
-                r_max = d.max() / 2
-                print(f"R_max = {r_max}")
-
                 _, ax = plt.subplots()
+                for frame_id, group in sub_df.groupby("frame"):
 
-                name = Path(
-                df['main_path'].iloc[0],
-                df['name'].iloc[0]
-                )
-                img = self._load_image(name, invert=False)
-                ax.imshow(img, cmap="gray")
-                
-                # plot coords + radius 
-                for pt1, pt2, di in zip(x, y, d):
-                    # print(pt1, pt2, di)
-                    ax.plot(pt1, pt2)
-                    ax.add_patch(plt.Circle((pt1, pt2), di/2), color="b", fill=False)
+                    print(f"Current frame : {frame_id}")
 
-                    # plot research radius
-                    ax.add_patch(plt.Circle((pt1, pt2), r_max), color="k", fill=False)
-                
+                    x = group["x"].to_numpy()
+                    y = group["y"].to_numpy()
+                    d = group["diameter_mean"].to_numpy()
+                    paths = group["main_path"].to_numpy()
+                    names = group["name"].to_numpy()
+                    
+                    r_max = d.max()
+                    print(f"R_max = {r_max:.2f} px")
+
+                    ax.set_title(f"Frame {frame_id}")
+
+                    name = Path(paths[0],names[0])
+                    print(f"image name : {name}")
+                    img = self._load_image(name, invert=False, rotate_image=0)
+                    ax.imshow(img, cmap="gray")
+                    
+                    # plot coords + radius 
+                    for pt1, pt2, di in zip(x, y, d):
+                        ax.plot(pt1, pt2)
+                        ax.add_patch(plt.Circle((pt1, pt2), di/2, color="k", fill=False))
+
+                        # plot research radius
+                        # for _, g in group.groupby("label"):
+                        #     coord_num = g["coordination"]
+                        #     labels_touched = 
+                        #     if  != 0:
+                        #     ax.add_patch(plt.Circle((pt1, pt2), r_max, color="k", fill=False))
                 plt.show()
 
             result.append(data_dict)
