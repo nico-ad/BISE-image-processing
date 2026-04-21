@@ -4408,7 +4408,7 @@ class VisualizationFunctions():
         pixel_size : float = 1.0,
         path_save: str|list = None,
         do_save: str|Path = False,
-        x_unit: str = "time",
+        x_unit: str = "frames",
         y_unit: str = "m/s",
         use_subpixel: bool = False,
         do_plot_error: bool = False,
@@ -4510,8 +4510,7 @@ class VisualizationFunctions():
             df["disp"] = np.sqrt(df.groupby("label")["dx"].transform(lambda x: x**2) + df.groupby("label")["dy"].transform(lambda x: x**2))
             df["velocity"] = df.groupby("label")["disp"].transform(lambda x: x / dt)
 
-            df["diameter"] = sub_df.groupby("label")["diameter_mean"].unique()
-            print(df["diameter"].unique())
+            df["diameter"] = df["label"].map(sub_df.groupby("label")["diameter_mean"].unique())
 
             # if len(df["velocity"]) > 3:
             #     func_base = FitFunction()._get_fitting_function()["exp"]
