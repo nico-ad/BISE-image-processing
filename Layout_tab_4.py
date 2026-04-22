@@ -84,6 +84,7 @@ class HelperTab4(QWidget):
             "Position tracking particles": self.visualization_func.Track_particles_position,
             "Velocity tracking particles": self.visualization_func.Track_particles_velocity,
             "Visualize labels": self.visualization_func.Visualize_labels,
+            "Voronoi triangulation": self.visualization_func.Visualize_Voronoi_triangulation,
         }
         
         tab_4 = QWidget()
@@ -156,7 +157,8 @@ class HelperTab4(QWidget):
                 "Mean square displacement", "Visualize labels",
                 ],
             "2D display": [
-                "Particles detection", "Voronoi trangulation", "Labels",
+
+                "Particles detection", "Voronoi triangulation", "Labels",
                 "Number of labels per frame", "Clusters", "Position tracking particles",
                 "Velocity tracking particles",
                 ],
@@ -600,7 +602,7 @@ class ImageViewer(QWidget):
         self.ax.imshow(data_dict["image"], origin="lower", cmap="gray", aspect="auto")
         self.ax.set_aspect("equal", adjustable="box")
         
-        if data_dict["label"]:
+        if "label" in data_dict:
             
             # --- color map
             if len(data_dict["label"]) <= 10:
@@ -670,6 +672,41 @@ class ImageViewer(QWidget):
                         FancyArrowPatch((0.1, 0.5), (0.9, 0.8), color=colors(i),
                                    mutation_scale=100, arrowstyle="-|>")
                         )
+                    
+        elif "voronoi" in data_dict:
+
+            # ----- scatter plot position
+            for i, fr in enumerate(data_dict["frames"]):
+
+                data_x = data_dict["x"][i]
+                data_y = data_dict["y"][i]
+
+                data_all = np.column_stack((data_x, data_y))
+                _, indices = np.unique(data_all, axis=0, return_index=True)
+                data_all = data_all[indices] # * data_dict["unit"]
+
+                self.ax.scatter(
+                    data_all[:, 0], data_all[:, 1],
+                    )
+            
+                # ----- voronoi vertices
+                vor = data_dict["vor"][i]
+                for r in vor.ridge_vertices:
+                    if len(r) == 2 and -1 not in r:
+                        v0, v1 = vor.vertices[r]
+                        self.ax.plot([v0[0], v1[0]], [v0[1], v1[1]], color="gray")
+                x_max = data_dict["image"].shape[1]
+                y_max = data_dict["image"].shape[0]
+                self.ax.set_xlim([0, x_max])
+                self.ax.set_ylim([0, y_max])
+
+                # ------ density map
+                if data_dict["density_map"] is not None:
+                    cmap = plt.cm.coolwarm
+                    self.ax.imshow(data_dict["density_map"][i], origin="lower",
+                        extent=(data_x.min(), data_x.max(), data_y.min(), data_y.max()),
+                        cmap=cmap, aspect="auto", alpha=0.5,
+                        )
 
         # sm = plt.cm.ScalarMappable(
         #     cmap=colors,
@@ -695,7 +732,7 @@ class ImageViewer(QWidget):
         self.ax.set_yticklabels([f"{y_tick*self.pixel_size:.3f}" for y_tick in y_ticks], fontsize=self.dict_fontsize["ticks"])
         
         self.ax.legend(
-            handles=legend_elements, #[f"{1*mag_order} m/s"]*len(legend_elements),
+            # handles=legend_elements, #[f"{1*mag_order} m/s"]*len(legend_elements),
             fontsize=self.dict_fontsize["legend"])
         
         self.fig.tight_layout()

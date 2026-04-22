@@ -58,7 +58,7 @@ from scipy.spatial.distance import cdist
 from scipy.sparse import csr_matrix
 from scipy.optimize import linear_sum_assignment, curve_fit, OptimizeWarning
 from scipy.integrate import quad
-from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import UnivariateSpline, griddata 
 from scipy import io
 
 from shapely.geometry import Polygon, box, Point
@@ -1870,216 +1870,372 @@ class VisualizationFunctions():
 
     #         plt.show()
     
+    # def Visualize_Voronoi_triangulation(
+    #     self,
+    #     path_dataframe: str|Path = None,
+    #     frames: int|list|np.ndarray = None,
+    #     path_save: Path|str = None,
+    #     do_save: bool = False,
+    #     units: str = "px",
+    #     rotate_image: int = None,
+    #     crop: list|np.ndarray = None,
+    #     change_main_path_images: list|str|Path = None,
+    #     do_density_map: bool = True,
+    #     min_max_value_colorbar: list = None,
+    #     mode: str = "separate",
+    #     language: str = "en",
+    #     ):
+        
+    #     if not isinstance(path_dataframe, (list, str, Path)):
+    #         msg = "dataframe must be list or pd.DataFrame type"
+    #         raise TypeError(msg)
+    #     if not isinstance(path_dataframe, list):
+    #         path_dataframe = [path_dataframe]
+        
+    #     if mode not in ["together", "separate"]:
+    #         msg = f"'mode' can be together or separate, not {mode}"
+    #         raise ValueError(msg)
+            
+    #     if mode == "together":
+    #         fig, ax = plt.subplots()
+
+    #     for i, path_data in enumerate(path_dataframe):
+
+    #         print(path_data)
+
+    #         keys = [
+    #             "frame", "main_path", "name", "time", "label", "diameter_mean",
+    #             "x", "y"
+    #             ]
+
+    #         dataframe = self._load_dataframe(
+    #             path_data,
+    #             usecols=keys,
+    #             )
+    #         self._check_keys(dataframe, keys)
+            
+    #         if isinstance(frames, int):
+    #             frames = [frames]
+    #         if frames is None:
+    #             frames = [dataframe["frame"].unique()]
+    #         if not isinstance(frames, (int, np.ndarray, list)):
+    #             msg = "'frames' must be int, list or ndarray of int"
+    #             raise TypeError(msg)
+            
+    #         mask = dataframe["frame"].isin(frames)
+            
+    #         sub_df = dataframe.loc[
+    #             mask,
+    #             keys,
+    #         ].copy()
+        
+    #         for i, (frame_id, group) in enumerate(sub_df.groupby("frame")):
+                
+    #             if mode == "separate":
+    #                 fig, ax = plt.subplots()
+                    
+    #             group["x"] = group["x"] * self.pixel_size
+    #             group["y"] = group["y"] * self.pixel_size
+                
+    #             # load and display image
+    #             path_image = Path(group["main_path"].unique()[0]) / Path(group["name"].unique()[0])
+    #             img = Image.open(path_image).convert("L")
+                
+    #             if rotate_image is not None:
+    #                 if rotate_image == 90:
+    #                     img = img.transpose(Image.ROTATE_90)
+    #                 elif rotate_image == 180:
+    #                     img = img.transpose(Image.ROTATE_180)
+    #                 elif rotate_image == 270:
+    #                     img = img.transpose(Image.ROTATE_270)
+                    
+    #                 # coords = self._rotate_coords(group[["x", "y"]].to_numpy(), np.array(img).shape[1], np.array(img).shape[0], rotate_image)
+    #                 # x_converted, y_converted = coords[:, 0], coords[:, 1]
+                    
+    #             x_converted, y_converted = group["x"]/self.pixel_size, group["y"]/self.pixel_size
+                
+    #             img = np.array(img, dtype=np.uint8)
+    #             ax.imshow(img, cmap="gray")
+                
+    #             ax.scatter(
+    #                 x_converted, # [px|meter|milli]
+    #                 y_converted, # [px|meter|milli]
+    #                 marker="o",
+    #                 # s=sub_df["diameter_mean"], # [px]
+    #                 alpha=0.7,
+    #                 color="tab:orange",
+    #             )
+                
+    #             # compute Voronoi triangulation
+    #             points = np.array(list(zip(x_converted, y_converted)))
+    #             voronoi_tri = Voronoi(points)
+                
+    #             x_max = img.shape[1]
+    #             y_max = img.shape[0]
+                
+    #             for ridge in voronoi_tri.ridge_vertices:
+    #                 if -1 not in ridge:
+    #                     v0, v1 = voronoi_tri.vertices[ridge]
+    #                     ax.plot([v0[0], v1[0]], [v0[1], v1[1]], color="gray")
+    #             ax.set_xlim([0, x_max])
+    #             ax.set_ylim([0, y_max])
+                
+    #             if do_density_map:
+                    
+    #                 bounding_polygon = Polygon([
+    #                     (0, 0), (2*x_max, 0),
+    #                     (2*x_max, 2*y_max), (0, 2*y_max)
+    #                 ])
+    #                 densities, cells = [], []
+    #                 for region_index in voronoi_tri.point_region:
+    #                     region = voronoi_tri.regions[region_index]
+    #                     if not region or -1 in region:
+    #                         densities.append(0)
+    #                         cells.append(None)
+    #                         continue
+                        
+    #                     polygon = Polygon(voronoi_tri.vertices[region])
+    #                     clipped = polygon.intersection(bounding_polygon)
+                        
+    #                     if clipped.is_empty:
+    #                         densities.append(0)
+    #                         cells.append(None)
+    #                     else:
+    #                         area = clipped.area
+    #                         rho = 1.0 / area if area > 0 else 0
+    #                         densities.append(rho)
+    #                         cells.append(clipped)
+                        
+    #                 densities = np.array(densities)
+    #                 densities = np.clip(densities, 0, np.percentile(densities, 99))
+    #                 densities_norm = (densities - densities.min()) / (densities.max() - densities.min() + 1e-9)
+                    
+    #                 # create mesh
+    #                 nx, ny = img.shape
+    #                 x_grid = np.linspace(points[:, 0].min(), points[:, 0].max(), nx)
+    #                 y_grid = np.linspace(points[:, 1].min(), points[:, 1].max(), ny)
+    #                 X, Y = np.meshgrid(x_grid, y_grid)
+                    
+    #                 # interpolate
+    #                 Z = scipy.interpolate.griddata(points, densities, (X, Y), method="cubic")
+                    
+    #                 # plot
+    #                 cmap = plt.cm.coolwarm
+    #                 ax.imshow(Z, origin="lower", extent=(points[:, 0].min(), points[:, 0].max(), points[:, 1].min(), points[:, 1].max()),
+    #                           cmap=cmap, aspect="auto", alpha=0.5)
+    #                 if min_max_value_colorbar is not None:
+    #                     min_max_value_colorbar = np.array(min_max_value_colorbar)
+    #                     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(
+    #                         vmin=min_max_value_colorbar.min(),
+    #                         vmax=min_max_value_colorbar.max()
+    #                         ))
+    #                 else:
+    #                     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(
+    #                         vmin=densities.min(),
+    #                         vmax=densities.max()
+    #                         ))
+    #                 sm.set_array([])
+    #                 color_bar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
+    #                 x_ticks = color_bar.get_ticks()[:-1]
+    #                 color_bar.set_ticks(x_ticks)
+    #                 if language == "en":
+    #                     color_bar.set_label("Local density $\\rho_p$ $[mm^{{-2}}]$", fontsize=self.dict_fontsize["label"])
+    #                 elif language == "fr":
+    #                     color_bar.set_label("Densité locale $\\rho_p$ $[mm^{{-2}}]$", fontsize=self.dict_fontsize["label"])
+    #                 color_bar.set_ticklabels([f"{color_value:.1e}" for color_value in np.array(color_bar.get_ticks())], fontsize=self.dict_fontsize["label"])
+                
+    #             x_ticks = ax.get_xticks()[1:-1]
+    #             y_ticks = ax.get_yticks()[1:-1]
+    #             ax.set_xticks(x_ticks)
+    #             ax.set_yticks(y_ticks)
+                
+    #             if units == "px":
+    #                 ax.set_xlabel("x $[px]$", fontsize=self.dict_fontsize["ticks"])
+    #                 ax.set_ylabel("y $[px]$", fontsize=self.dict_fontsize["ticks"])
+    #                 ax.set_xticklabels([f"{x_value:.0f}" for x_value in np.array(ax.get_xticks())], fontsize=self.dict_fontsize["label"])
+    #                 ax.set_yticklabels([f"{y_value:.0f}" for y_value in np.array(ax.get_yticks())], fontsize=self.dict_fontsize["label"])
+
+    #             if units == "meter":
+    #                 ax.set_xlabel("x $[m]$", fontsize=self.dict_fontsize["ticks"])
+    #                 ax.set_ylabel("y $[m]$", fontsize=self.dict_fontsize["ticks"])
+    #                 ax.set_xticklabels([f"{x_value * self.pixel_size / 1000:.2f}" for x_value in np.array(ax.get_xticks())], fontsize=self.dict_fontsize["label"])
+    #                 ax.set_yticklabels([f"{y_value * self.pixel_size / 1000:.2f}" for y_value in np.array(ax.get_yticks())], fontsize=self.dict_fontsize["label"])
+                
+    #             if units == "milli":
+    #                 ax.set_xlabel("x $[mm]$", fontsize=self.dict_fontsize["ticks"])
+    #                 ax.set_ylabel("y $[mm]$", fontsize=self.dict_fontsize["ticks"])
+    #                 ax.set_xticklabels([f"{x_value * self.pixel_size:.2f}" for x_value in np.array(ax.get_xticks())], fontsize=self.dict_fontsize["label"])
+    #                 ax.set_yticklabels([f"{y_value * self.pixel_size:.2f}" for y_value in np.array(ax.get_yticks())], fontsize=self.dict_fontsize["label"])
+
+    #             plt.subplots_adjust(**self.dict_fontsize["subplots"])
+                
+    #             if do_save:
+    #                 name = Path(path_save) / Path(
+    #                     f"Visualize_{len(group):d}_particles_"
+    #                     + PurePath(path_save).parts[-1]
+    #                     + "_on_plate_"
+    #                     + str(frame_id)
+    #                     + ".png"
+    #                 )
+    #                 plt.savefig(name, dpi=120)
+    #             else:
+    #                 plt.show()
+
     def Visualize_Voronoi_triangulation(
         self,
-        path_dataframe: str|Path = None,
+        dataframe: str|Path = None,
         frames: int|list|np.ndarray = None,
-        path_save: Path|str = None,
-        do_save: bool = False,
-        units: str = "px",
-        rotate_image: int = None,
-        crop: list|np.ndarray = None,
-        change_main_path_images: list|str|Path = None,
-        do_density_map: bool = True,
-        min_max_value_colorbar: list = None,
-        mode: str = "separate",
-        language: str = "en",
-        ):
-        
-        if not isinstance(path_dataframe, (list, str, Path)):
-            msg = "dataframe must be list or pd.DataFrame type"
-            raise TypeError(msg)
-        if not isinstance(path_dataframe, list):
-            path_dataframe = [path_dataframe]
-        
-        if mode not in ["together", "separate"]:
-            msg = f"'mode' can be together or separate, not {mode}"
-            raise ValueError(msg)
+        labels : int|list|np.ndarray = None,
+        pixel_size: float = None,
+        unit: str = "px",
+        rotate: int = None,
+        do_density_map: bool = False,
+        ) -> pd.DataFrame:
             
-        if mode == "together":
-            fig, ax = plt.subplots()
-
-        for i, path_data in enumerate(path_dataframe):
-
-            print(path_data)
-
-            keys = [
-                "frame", "main_path", "name", "time", "label", "diameter_mean",
-                "x", "y"
-                ]
-
-            dataframe = self._load_dataframe(
-                path_data,
-                usecols=keys,
-                )
-            self._check_keys(dataframe, keys)
+            results = []
             
-            if isinstance(frames, int):
-                frames = [frames]
-            if frames is None:
-                frames = [dataframe["frame"].unique()]
-            if not isinstance(frames, (int, np.ndarray, list)):
-                msg = "'frames' must be int, list or ndarray of int"
-                raise TypeError(msg)
-            
-            mask = dataframe["frame"].isin(frames)
-            
-            sub_df = dataframe.loc[
-                mask,
-                keys,
-            ].copy()
-        
-            for i, (frame_id, group) in enumerate(sub_df.groupby("frame")):
+            for data in dataframe:
                 
-                if mode == "separate":
-                    fig, ax = plt.subplots()
-                    
-                group["x"] = group["x"] * self.pixel_size
-                group["y"] = group["y"] * self.pixel_size
-                
-                # load and display image
-                path_image = Path(group["main_path"].unique()[0]) / Path(group["name"].unique()[0])
-                img = Image.open(path_image).convert("L")
-                
-                if rotate_image is not None:
-                    if rotate_image == 90:
-                        img = img.transpose(Image.ROTATE_90)
-                    elif rotate_image == 180:
-                        img = img.transpose(Image.ROTATE_180)
-                    elif rotate_image == 270:
-                        img = img.transpose(Image.ROTATE_270)
-                    
-                    # coords = self._rotate_coords(group[["x", "y"]].to_numpy(), np.array(img).shape[1], np.array(img).shape[0], rotate_image)
-                    # x_converted, y_converted = coords[:, 0], coords[:, 1]
-                    
-                x_converted, y_converted = group["x"]/self.pixel_size, group["y"]/self.pixel_size
-                
-                img = np.array(img, dtype=np.uint8)
-                ax.imshow(img, cmap="gray")
-                
-                ax.scatter(
-                    x_converted, # [px|meter|milli]
-                    y_converted, # [px|meter|milli]
-                    marker="o",
-                    # s=sub_df["diameter_mean"], # [px]
-                    alpha=0.7,
-                    color="tab:orange",
-                )
-                
-                # compute Voronoi triangulation
-                points = np.array(list(zip(x_converted, y_converted)))
-                voronoi_tri = Voronoi(points)
-                
-                x_max = img.shape[1]
-                y_max = img.shape[0]
-                
-                for ridge in voronoi_tri.ridge_vertices:
-                    if -1 not in ridge:
-                        v0, v1 = voronoi_tri.vertices[ridge]
-                        ax.plot([v0[0], v1[0]], [v0[1], v1[1]], color="gray")
-                ax.set_xlim([0, x_max])
-                ax.set_ylim([0, y_max])
-                
-                if do_density_map:
-                    
-                    bounding_polygon = Polygon([
-                        (0, 0), (2*x_max, 0),
-                        (2*x_max, 2*y_max), (0, 2*y_max)
-                    ])
-                    densities, cells = [], []
-                    for region_index in voronoi_tri.point_region:
-                        region = voronoi_tri.regions[region_index]
-                        if not region or -1 in region:
-                            densities.append(0)
-                            cells.append(None)
-                            continue
-                        
-                        polygon = Polygon(voronoi_tri.vertices[region])
-                        clipped = polygon.intersection(bounding_polygon)
-                        
-                        if clipped.is_empty:
-                            densities.append(0)
-                            cells.append(None)
-                        else:
-                            area = clipped.area
-                            rho = 1.0 / area if area > 0 else 0
-                            densities.append(rho)
-                            cells.append(clipped)
-                        
-                    densities = np.array(densities)
-                    densities = np.clip(densities, 0, np.percentile(densities, 99))
-                    densities_norm = (densities - densities.min()) / (densities.max() - densities.min() + 1e-9)
-                    
-                    # create mesh
-                    nx, ny = img.shape
-                    x_grid = np.linspace(points[:, 0].min(), points[:, 0].max(), nx)
-                    y_grid = np.linspace(points[:, 1].min(), points[:, 1].max(), ny)
-                    X, Y = np.meshgrid(x_grid, y_grid)
-                    
-                    # interpolate
-                    Z = scipy.interpolate.griddata(points, densities, (X, Y), method="cubic")
-                    
-                    # plot
-                    cmap = plt.cm.coolwarm
-                    ax.imshow(Z, origin="lower", extent=(points[:, 0].min(), points[:, 0].max(), points[:, 1].min(), points[:, 1].max()),
-                              cmap=cmap, aspect="auto", alpha=0.5)
-                    if min_max_value_colorbar is not None:
-                        min_max_value_colorbar = np.array(min_max_value_colorbar)
-                        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(
-                            vmin=min_max_value_colorbar.min(),
-                            vmax=min_max_value_colorbar.max()
-                            ))
-                    else:
-                        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(
-                            vmin=densities.min(),
-                            vmax=densities.max()
-                            ))
-                    sm.set_array([])
-                    color_bar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
-                    x_ticks = color_bar.get_ticks()[:-1]
-                    color_bar.set_ticks(x_ticks)
-                    if language == "en":
-                        color_bar.set_label("Local density $\\rho_p$ $[mm^{{-2}}]$", fontsize=self.dict_fontsize["label"])
-                    elif language == "fr":
-                        color_bar.set_label("Densité locale $\\rho_p$ $[mm^{{-2}}]$", fontsize=self.dict_fontsize["label"])
-                    color_bar.set_ticklabels([f"{color_value:.1e}" for color_value in np.array(color_bar.get_ticks())], fontsize=self.dict_fontsize["label"])
-                
-                x_ticks = ax.get_xticks()[1:-1]
-                y_ticks = ax.get_yticks()[1:-1]
-                ax.set_xticks(x_ticks)
-                ax.set_yticks(y_ticks)
-                
-                if units == "px":
-                    ax.set_xlabel("x $[px]$", fontsize=self.dict_fontsize["ticks"])
-                    ax.set_ylabel("y $[px]$", fontsize=self.dict_fontsize["ticks"])
-                    ax.set_xticklabels([f"{x_value:.0f}" for x_value in np.array(ax.get_xticks())], fontsize=self.dict_fontsize["label"])
-                    ax.set_yticklabels([f"{y_value:.0f}" for y_value in np.array(ax.get_yticks())], fontsize=self.dict_fontsize["label"])
-
-                if units == "meter":
-                    ax.set_xlabel("x $[m]$", fontsize=self.dict_fontsize["ticks"])
-                    ax.set_ylabel("y $[m]$", fontsize=self.dict_fontsize["ticks"])
-                    ax.set_xticklabels([f"{x_value * self.pixel_size / 1000:.2f}" for x_value in np.array(ax.get_xticks())], fontsize=self.dict_fontsize["label"])
-                    ax.set_yticklabels([f"{y_value * self.pixel_size / 1000:.2f}" for y_value in np.array(ax.get_yticks())], fontsize=self.dict_fontsize["label"])
-                
-                if units == "milli":
-                    ax.set_xlabel("x $[mm]$", fontsize=self.dict_fontsize["ticks"])
-                    ax.set_ylabel("y $[mm]$", fontsize=self.dict_fontsize["ticks"])
-                    ax.set_xticklabels([f"{x_value * self.pixel_size:.2f}" for x_value in np.array(ax.get_xticks())], fontsize=self.dict_fontsize["label"])
-                    ax.set_yticklabels([f"{y_value * self.pixel_size:.2f}" for y_value in np.array(ax.get_yticks())], fontsize=self.dict_fontsize["label"])
-
-                plt.subplots_adjust(**self.dict_fontsize["subplots"])
-                
-                if do_save:
-                    name = Path(path_save) / Path(
-                        f"Visualize_{len(group):d}_particles_"
-                        + PurePath(path_save).parts[-1]
-                        + "_on_plate_"
-                        + str(frame_id)
-                        + ".png"
-                    )
-                    plt.savefig(name, dpi=120)
+                # ----- frames
+                if frames is None:
+                    selected_frames = data["frame"].unique()
+                elif isinstance(frames, int):
+                    selected_frames = [frames]
+                elif isinstance(frames, (list, np.ndarray)):
+                    selected_frames = frames
                 else:
-                    plt.show()
+                    msg = "'frames' must be int, list or np.ndarray of int"
+                    raise TypeError(msg)
+
+                # ----- labels
+                if labels == "all" or labels is None:
+                    selected_labels = sorted(data["label"].unique())
+                else:
+                    selected_labels = labels
+                
+                # ----- filtering
+                mask = (
+                    data["frame"].isin(selected_frames) &
+                    data["label"].isin(selected_labels)
+                )
+                
+                sub_df = data.loc[
+                    mask,
+                    ["frame", "main_path", "name", "label", "time",
+                    "x", "y", "diameter_mean"]
+                ].copy()
+                
+                if sub_df.empty:
+                    continue
+                
+                unit_factor = {
+                    "px": 1,
+                    "mm": pixel_size,
+                    "m": pixel_size / 1000
+                }[unit]
+                
+                unit_label = {
+                    "px": "px",
+                    "mm": "mm",
+                    "m": "m",
+                }[unit]
+                
+                sub_df["x"] *= unit_factor
+                sub_df["y"] *= unit_factor
+                
+                # ----- load image
+                name = Path(
+                    data['main_path'].iloc[0],
+                    data['name'].iloc[0]
+                    )
+                img = self._load_image(name, invert=False, rotate_image=rotate)
+
+                # ----- group data
+                grouped_frames = sub_df.groupby("frame")
+
+                # ----- compute Voronoi triangulation
+                vors = []
+                density_maps = []
+
+                if do_density_map:
+                    bounding_polygon = Polygon([
+                        (0, 0), (2*img.shape[1], 0),
+                        (2*img.shape[1], 2*img.shape[0]), (0, 2*img.shape[0])
+                    ])
+
+                for frame, g in grouped_frames:
+                    pts = np.unique(g[["x", "y"]].values, axis=0)
+                    if len(pts) < 3:
+                        vors.append(None)
+                        density_maps.append(None)
+                        continue
+
+                    # voronoi
+                    vor = Voronoi(pts)
+                    vors.append(vor)
+
+                    ridges = [
+                        vor.vertices[r]
+                        for r in vor.ridge_vertices
+                        if len(r) == 2 and -1 not in r
+                    ]
+
+                    # ----- density map
+                    densities = []
+                    if do_density_map:
+
+                        for region_index in vor.point_region:
+                            region = vor.regions[region_index]
+                            
+                            if not region or -1 in region:
+                                density_maps.append(0)
+                                continue
+                            
+                            polygon = Polygon(vor.vertices[region])
+                            clipped = polygon.intersection(bounding_polygon)
+                            
+                            if clipped.is_empty:
+                                densities.append(0)
+                            else:
+                                area = clipped.area
+                                rho = 1.0 / area if area > 0 else 0
+                                densities.append(rho)
+                        
+                        densities = np.array(densities)
+
+                        if len(densities) != len(vor.points):
+                            density_maps.append(None)
+                        densities = np.clip(densities, 0, np.percentile(densities, 99))
+                        # densities_norm = (densities - densities.min()) / (densities.max() - densities.min() + 1e-9)
+                        
+                        # ----- create mesh
+                        pts = vor.points
+                        nx, ny = img.shape[1], img.shape[0]
+
+                        x = np.linspace(pts[:, 0].min(), pts[:, 0].max(), nx)
+                        y = np.linspace(pts[:, 1].min(), pts[:, 1].max(), ny)
+                        X, Y = np.meshgrid(x, y)
+                        
+                        Z = griddata(pts, densities, (X, Y), method="cubic")
+                        density_maps.append(Z)
+
+                data_dict = {
+                    "image": img,
+                    "voronoi": True,
+                    "x": [group["x"].to_numpy() for _, group in grouped_frames],
+                    "y": [group["y"].to_numpy() for _, group in grouped_frames],
+                    "frames": [group["frame"].to_numpy() for _, group in grouped_frames],
+                    "vor": vors,
+                    # "voronoi_vertices": voronoi_vertices,
+                    "density_map": density_maps if do_density_map else None,
+                    "unit": unit_factor,
+                    "x_label": f"X [{unit_label}]",
+                    "y_label": f"Y [{unit_label}]",
+                    "density_label": f"Density [\\rho]" if do_density_map else None,
+                }
+                results.append(data_dict)
+                
+            return results
 
     def Visualize_surface_concentration(
         self,
@@ -4510,6 +4666,7 @@ class VisualizationFunctions():
             df["disp"] = np.sqrt(df.groupby("label")["dx"].transform(lambda x: x**2) + df.groupby("label")["dy"].transform(lambda x: x**2))
             df["velocity"] = df.groupby("label")["disp"].transform(lambda x: x / dt)
 
+            diameter = sub_df.groupby("label")["diameter_mean"].unique().values
             df["diameter"] = df["label"].map(sub_df.groupby("label")["diameter_mean"].unique())
 
             # if len(df["velocity"]) > 3:
