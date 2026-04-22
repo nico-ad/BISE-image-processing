@@ -31,6 +31,7 @@ import pandas as pd
 from PIL import Image, ImageOps
 from pathlib import Path
 import csv
+import os
 
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -50,6 +51,12 @@ class HelperTab4(QWidget):
         super().__init__()
         
         self.parent = parent
+
+        if not hasattr(self.parent, "files_list_dataframe"):
+            self.parent.files_list_dataframe = []
+        
+        if not hasattr(self.parent, "dataframe_cache"):
+            self.parent.dataframe_cache = {}
         
         self.visualization_func = Visualization.VisualizationFunctions(parent=self)
         self.fitting_func = func_preview.FitFunction()
@@ -235,14 +242,6 @@ class HelperTab4(QWidget):
         
         if dialog.exec_():
             
-            if not hasattr(self.parent, "folders_list_dataframe"):
-                self.parent.folders_list_dataframe = []
-            if not hasattr(self.parent, "files_list_dataframe"):
-                self.parent.files_list_dataframe = []
-            
-            new_folders = []
-            new_files = []
-            
             for file_path in dialog.selectedFiles():
                 
                 file_path = Path(file_path)
@@ -251,28 +250,26 @@ class HelperTab4(QWidget):
                 if file_path in self.parent.files_list_dataframe:
                     continue
                 
+                # add in table
                 row = self.parent.parameters_table_tab_4.rowCount()
                 self.parent.parameters_table_tab_4.insertRow(row)
                 
                 item = QTableWidgetItem()
                 
-                new_folders.append(file_path.parents[0])
-                new_files.append(file_path.name)
-                
-                # truncate path
-                file_path = str(file_path)
-                if len(file_path) > 20:
-                    display_text = f"{file_path[:20]}...{file_path[-20:]}"
+                # truncate path display
+                file_path_str = str(file_path)
+                if len(file_path_str) > 20:
+                    display_text = f"{file_path_str[:20]}...{file_path_str[-20:]}"
                 else:
                     display_text = file_path
                     
                 # create item to store path folder
                 item.setText(display_text)
+                #store path
                 item.setData(Qt.UserRole, file_path)
                 self.parent.parameters_table_tab_4.setItem(row, 0, item)
-                
-            self.parent.folders_list_dataframe.extend(new_folders)
-            self.parent.files_list_dataframe.extend(new_files)
+
+                self.parent.files_list_dataframe.append(file_path)
         
             self.parent.parameters_table_tab_4.viewport().update()
                 
@@ -280,11 +277,36 @@ class HelperTab4(QWidget):
         """ Remove file """
         
         line = self.parent.parameters_table_tab_4.currentRow()
+
         if line >= 0:
+
+            item = self.parent.parameters_table_tab_4.item(line, 0)
+            file_path = item.data(Qt.UserRole)
+
+            # remove from list
+            if file_path in self.parent.files_list_dataframe:
+                del self.parent.dataframe_cache[file_path]
+            
             self.parent.parameters_table_tab_4.removeRow(line)
         
-        if not hasattr(self, "viewer"):
-            self.viewer._clear()
+            if hasattr(self, "viewer"):
+                self.viewer._clear()
+    
+    def _get_dataframe(self, file_path):
+        """ Return dataframe with intelligent cache """
+
+        cache = self.parent.dataframe_cache
+
+        # date of modified file
+        mtime = os.path.getmtime(str(file_path))
+
+        if file_path not in cache or cache[file_path]["mtime"] != mtime:
+            df = self._load_file(file_path)
+            cache[file_path] = {
+                "df": df,
+                "mtime": mtime,
+            }
+        return cache[file_path]["df"]
     
     def _load_file(self, path: str|Path, usecols: str|list = None, change_main_path_images: str = None):
         """ Load data file """
@@ -315,11 +337,11 @@ class HelperTab4(QWidget):
             return
         
         self.function_label.setText(f"Selected function : {name}")
-        
-        # load dataframes
-        dataframe = [self._load_file(Path(p) / Path(f)) for p, f in zip(
-            self.parent.folders_list_dataframe, self.parent.files_list_dataframe
-            )]
+
+        dataframe = [
+            self._get_dataframe(path)
+            for path in self.parent.files_list_dataframe
+        ]
         
         # read frames
         if self.frames_start.text() and self.frames_end.text():
