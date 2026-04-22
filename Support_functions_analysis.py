@@ -1575,7 +1575,7 @@ class ParticleAnalyser(QObject):
         return (frame_id, result)
 
     # @staticmethod
-    def _compute_coordination_number(df: pd.DataFrame = None, tol: float = 1, do_plot: bool = True) -> pd.DataFrame:
+    def _compute_coordination_number(df: pd.DataFrame = None, do_plot: bool = False) -> pd.DataFrame:
         """ Compute coordination number for each particle """
         
         df = df.copy()
@@ -1590,13 +1590,13 @@ class ParticleAnalyser(QObject):
             coord = np.zeros(len(group), dtype=int)
 
             # define max raduis
-            r_max = (d[:, None] + d[None, :]).max() / 2 + tol
+            r_max = (d[:, None] + d[None, :]).max() / 2
 
             for i in range(len(group)):
                 # r_max = (d[i] - d.max()) / 2 + tol
                 neighbors = tree.query_ball_point(pts[i], r_max)
                 neighbors.remove(i)
-                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i]+d[j])/2 + tol)]
+                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i]+d[j])/2)]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
         
