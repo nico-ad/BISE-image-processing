@@ -634,7 +634,7 @@ class ParticleAnalyser(QObject):
                 # self.finished_detection_signal.emit()
                 continue
             
-            print(f"Number of images to process for '{folder}' is {len(list_images)}\n")
+            print(f"Number of images to process for '{folder}' is {len(self.list_images)}\n")
             
             # analyse images
             self.results = [None] * len(self.list_images)
@@ -770,7 +770,7 @@ class ParticleAnalyser(QObject):
         df.to_csv(output_file, index=False)
         
         self.finished_signal.emit()
-        print(f"Detection of all images over : {processed}")
+        print(f"Detection of all images is over : {processed}")
     
     def Process_image(self, image_path:Path|str=None, do_plot:bool=False) -> pd.DataFrame:
         """
@@ -992,61 +992,61 @@ class ParticleAnalyser(QObject):
             # print("Assign_ID_ROI done !!!")
             print("done")
             
-            print("UPDATE DIAMETERS ...", end=" ")
-            # df = pd.DataFrame(pd.read_csv(path))
-            df = analyser.UpdateDiameters(dataframe=df)
-            df.to_csv(final_path)
-            # queue.put(("tick", task_id, "UpdateDiameters"))
-            # print("UpdateDiameters done !!!")
-            print("done")
+            # print("UPDATE DIAMETERS ...", end=" ")
+            # # df = pd.DataFrame(pd.read_csv(path))
+            # df = analyser.UpdateDiameters(dataframe=df)
+            # df.to_csv(final_path)
+            # # queue.put(("tick", task_id, "UpdateDiameters"))
+            # # print("UpdateDiameters done !!!")
+            # print("done")
             
-            print("CLUSTER ...", end=" ")
-            # df = pd.DataFrame(pd.read_csv(path))
-            df = analyser_class.Cluster(dataframe=df)
-            df.to_csv(final_path)
-            # queue.put(("tick", task_id, "Cluster"))
-            # print("Cluster done !!!")
-            print("done")
+            # print("CLUSTER ...", end=" ")
+            # # df = pd.DataFrame(pd.read_csv(path))
+            # df = analyser_class.Cluster(dataframe=df)
+            # df.to_csv(final_path)
+            # # queue.put(("tick", task_id, "Cluster"))
+            # # print("Cluster done !!!")
+            # print("done")
 
-            print("MASS ...", end=" ")
-            # df = pd.DataFrame(pd.read_csv(path))
-            df = analyser_class.Mass(dataframe=df, density=2230.0)
-            df.to_csv(final_path)
-            # queue.put(("tick", task_id, "Mass"))
-            # print("Mass done !!!")
-            print("done")
+            # print("MASS ...", end=" ")
+            # # df = pd.DataFrame(pd.read_csv(path))
+            # df = analyser_class.Mass(dataframe=df, density=2230.0)
+            # df.to_csv(final_path)
+            # # queue.put(("tick", task_id, "Mass"))
+            # # print("Mass done !!!")
+            # print("done")
             
-            print("VELOCITY ...", end=" ")
-            # df = pd.DataFrame(pd.read_csv(path))
-            df = analyser_class.Velocity(dataframe=df, time_interval=1/8000)
-            df.to_csv(final_path)
-            # queue.put(("tick", task_id, "Velocity"))
-            # print("Velocity done !!!")
-            print(" done")
+            # print("VELOCITY ...", end=" ")
+            # # df = pd.DataFrame(pd.read_csv(path))
+            # df = analyser_class.Velocity(dataframe=df, time_interval=1/8000)
+            # df.to_csv(final_path)
+            # # queue.put(("tick", task_id, "Velocity"))
+            # # print("Velocity done !!!")
+            # print(" done")
             
-            print("ACCELERATION ...", end=" ")
-            # df = pd.DataFrame(pd.read_csv(path))
-            df = analyser_class.Acceleration(dataframe=df)
-            df.to_csv(final_path)
-            # queue.put(("tick", task_id, "Acceleration"))
-            # print("Acceleration done !!!")
-            print(" done")
+            # print("ACCELERATION ...", end=" ")
+            # # df = pd.DataFrame(pd.read_csv(path))
+            # df = analyser_class.Acceleration(dataframe=df)
+            # df.to_csv(final_path)
+            # # queue.put(("tick", task_id, "Acceleration"))
+            # # print("Acceleration done !!!")
+            # print(" done")
             
-            print("MOMENTUM ...", end=" ")
-            # df = pd.DataFrame(pd.read_csv(path))
-            df = analyser_class.Momentum(dataframe=df)
-            df.to_csv(final_path)
-            # queue.put(("tick", task_id, "Momentum"))
-            # print("Momentum done !!!")
-            print(" done")
+            # print("MOMENTUM ...", end=" ")
+            # # df = pd.DataFrame(pd.read_csv(path))
+            # df = analyser_class.Momentum(dataframe=df)
+            # df.to_csv(final_path)
+            # # queue.put(("tick", task_id, "Momentum"))
+            # # print("Momentum done !!!")
+            # print(" done")
             
-            print("KINETIC ...", end=" ")
-            # df = pd.DataFrame(pd.read_csv(path))
-            df = analyser_class.KineticEnergy(dataframe=df)
-            df.to_csv(final_path)
-            # queue.put(("tick", task_id, "KineticEnergy"))
-            # print("KineticEnergy done !!!")
-            print("done")
+            # print("KINETIC ...", end=" ")
+            # # df = pd.DataFrame(pd.read_csv(path))
+            # df = analyser_class.KineticEnergy(dataframe=df)
+            # df.to_csv(final_path)
+            # # queue.put(("tick", task_id, "KineticEnergy"))
+            # # print("KineticEnergy done !!!")
+            # print("done")
             
             # df = pd.DataFrame(pd.read_csv(path))
             # df = analyser_class.Collision(dataframe=df)
@@ -1070,6 +1070,7 @@ class ParticleAnalyser(QObject):
     
     def Assign_ID_ROI(
         dataframe: pd.DataFrame = None,
+        max_dist: int = 20, # px
         do_plot: bool = False,
         language: str = "en",
         unit: str = "px",
@@ -1080,7 +1081,7 @@ class ParticleAnalyser(QObject):
             x_min:int, x_max:int,
             y_min:int, y_max:int,
             roi_w:int, roi_h:int,
-            overlap:int,
+            overlap: int,
         ):
             rois = []
             step_x = roi_w - overlap
@@ -1117,7 +1118,7 @@ class ParticleAnalyser(QObject):
         def _assign_global_labels(
                 df: pd.DataFrame = None,
                 max_dist: int = None,
-                do_plot: bool = False,
+                do_plot: bool = True,
         ):
             
             df = df.copy()
@@ -1143,7 +1144,7 @@ class ParticleAnalyser(QObject):
                     continue
                 else :
                     cost = cdist(prev_pos, curr_pos)
-                    cost[cost > max_dist] = 1e4
+                    cost[cost > max_dist] = 1e2
                 
                 # display cost matrix
                 if do_plot:
@@ -1202,7 +1203,8 @@ class ParticleAnalyser(QObject):
                     if language == "en":
                         cbar.set_label("Cost")#, fontsize=ParticleAnalyser.dict_fontsize["label"])
 
-                    plt.show()
+                    # plt.show()
+                    plt.savefig(f"/home/abad-ale/Documents/Images_Assign_ID/Cost_matrix_frame_{t}.png")
                 
                 gids = np.full(n, -1, dtype=int)
                 if not (
@@ -1254,14 +1256,13 @@ class ParticleAnalyser(QObject):
             image_path=Path(dataframe["main_path"].unique()[0], dataframe["name"].unique()[0]),
             invert=False
             ).shape
-        print(f"image shape : {img_size}")
 
         # compute tracking
         # if not all(col in dataframe.columns for col in ["label", "local_label", "roi_id"]):
         df_local, rois = _full_tracking_pipeline(
             dataframe,
-            roi_params=(0, img_size[1], 0, img_size[0], img_size[1]/8, img_size[0]/8, 0),
-            max_dist=100,
+            roi_params=(0, img_size[1], 0, img_size[0], img_size[1], img_size[0], 0),
+            max_dist=max_dist,
             # merge_dist=7,
             nproc=1,
         )
@@ -1281,22 +1282,21 @@ class ParticleAnalyser(QObject):
 
         # display
         if do_plot:
-            
-            path_img = Path(df_tracked["main_path"].unique()[0], df_tracked["name"].unique()[0])
-            img = _load_image_core(path_img, invert=False)
 
             if labels_used == "global":
                 labels = df_tracked["label"].unique()
             else:
                 labels = df_tracked["local_label"].unique()
             n_labels = len(labels)
-            print(n_labels, df_tracked["label"].unique().min(), df_tracked["label"].unique().max())
+            print()
+            print(f"Info labels :")
+            print(f"    number of labels : {n_labels}")
+            print(f"    min label : {df_tracked['label'].unique().min()}, max label : {df_tracked['label'].unique().max()}")
 
             frames = df_tracked["frame"].unique()
             n_frames = len(frames)
             
             print(f"Number of frames : {n_frames}")
-            print(f"Number of labels : {n_labels}")
             
             if n_labels <= 10:
                 base_map = plt.get_cmap("tab10")
@@ -1309,83 +1309,96 @@ class ParticleAnalyser(QObject):
             cmap = mcolors.ListedColormap(colors)
             norm = mcolors.BoundaryNorm(np.arange(n_labels + 1) - 0.5, n_labels)
 
-            _, ax = plt.subplots()
+            for frame_id, group_frames in df_tracked.groupby("frame"):
             
-            ax.imshow(img, cmap="gray")
+                _, ax = plt.subplots()
 
-            # add ROIs
-            for roi in rois:
-                x0, y0, x1, y1 = roi
-                width, height = x1-x0, y1-y0
-                rect = patches.Rectangle(
-                    (x0, y0),
-                    width, height,
-                    edgecolor="black", facecolor="tab:red", alpha=0.2,
+                ax.set_title(f"Frame : {frame_id}")
+                
+                # add image
+                path_img = Path(group_frames["main_path"].unique()[0], group_frames["name"].unique()[0])
+                img = _load_image_core(path_img, invert=False)
+                ax.imshow(img, cmap="gray")
+
+                # add ROIs
+                for roi in rois:
+                    x0, y0, x1, y1 = roi
+                    width, height = x1-x0, y1-y0
+                    rect = patches.Rectangle(
+                        (x0, y0),
+                        width, height,
+                        edgecolor="black", facecolor="tab:red", alpha=0.2,
+                        )
+                    ax.add_patch(rect)
+                
+                # add labels
+                for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
+                    
+                    # add particle coordinates
+                    ax.scatter(
+                        group_labels["x"], group_labels["y"],
+                        color=cmap(i), marker="o", alpha=1.0,
                     )
-                ax.add_patch(rect)
-            plt.show()
-            
-            # add labels
-            for i, label in enumerate(labels):
-                
-                if labels_used == "global":
-                    group = df_tracked[df_tracked["label"] == label]
-                else:
-                    group = df_tracked[df_tracked["local_label"] == label]
-                
-                ax.scatter(
-                    group["x"], group["y"],
-                    color=cmap(i), marker="o", alpha=1.0,
-                )
-            
-            ax.set_xlim(0, img_size[1])
-            ax.set_ylim(0, img_size[0])
 
-            x_ticks = ax.get_xticks()[:-1]
-            y_ticks = ax.get_yticks()[:-1]
-
-            ax.set_xticks(x_ticks)
-            ax.set_yticks(y_ticks)
-            
-            if unit == "mm":
-                ax.set_xlabel("x [mm]")#, fontsize=self.dict_fontsize["label"])
-                ax.set_ylabel("y [mm]")#, fontsize=self.dict_fontsize["label"])
-                ax.set_xticklabels([f"{x_tick * self.pixel_size:.2f}" for x_tick in x_ticks])#, fontsize=self.dict_fontsize["ticks"])
-                ax.set_yticklabels([f"{y_tick * self.pixel_size:.2f}" for y_tick in y_ticks])#, fontsize=self.dict_fontsize["ticks"])
+                    for x, y, d in zip(group_labels["x"], group_labels["y"], group_labels["diameter"]):
+                        
+                        # add equivalent diameter
+                        ax.add_patch(plt.Circle((x, y), d/2, color="b", fill=False))
+                        
+                        # add neighboor distance
+                        r_max = np.max(group_frames["diameter"]) / 2
+                        ax.add_patch(plt.Circle((x, y), r_max, color="r", fill=False))
+                        
                 
-            if unit == "px":
-                ax.set_xlabel("x [px]")#, fontsize=self.dict_fontsize["label"])
-                ax.set_ylabel("y [px]")#, fontsize=self.dict_fontsize["label"])
-                ax.set_xticklabels([f"{x_tick:.0f}" for x_tick in x_ticks])#, fontsize=self.dict_fontsize["ticks"])
-                ax.set_yticklabels([f"{y_tick:.0f}" for y_tick in y_ticks])#, fontsize=self.dict_fontsize["ticks"])
-            
-            # add colorbar
-            # sm = plt.cm.ScalarMappable(
-            #     cmap=cmap,
-            #     norm=norm,
-            #     )
-            # sm.set_array([])
-            # cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
-            # cbar_ticks = cbar.get_ticks()
-            # cbar.set_ticks(cbar_ticks)
-            # if language == "fr":
-            #     cbar.set_label("Labels")#, fontsize=self.dict_fontsize["label"])
-            # if language == "en":
-            #     cbar.set_label("Labels")#, fontsize=self.dict_fontsize["label"])
-            # cbar.set_ticklabels([])
-            
-            # if labels_used == "global":
-            #     cbar.set_ticklabels([f"{np.abs(cbar_tick)+0.5:.0f}" for cbar_tick in cbar_ticks])#, fontsize=self.dict_fontsize["ticks"])
-            # else:
-            #     for i, cbar_tick in enumerate(cbar_ticks):
-            #         cbar.ax.text(
-            #             0.5, cbar_tick - 0.5,
-            #             f"{int(cbar_tick)}",
-            #             ha="center", va="center",
-            #             # fontsize=self.dict_fontsize["ticks"],
-            #         )
+                ax.set_xlim(0, img_size[1])
+                ax.set_ylim(0, img_size[0])
 
-            plt.show()
+                x_ticks = ax.get_xticks()[:-1]
+                y_ticks = ax.get_yticks()[:-1]
+
+                ax.set_xticks(x_ticks)
+                ax.set_yticks(y_ticks)
+                
+                if unit == "mm":
+                    ax.set_xlabel("x [mm]")#, fontsize=self.dict_fontsize["label"])
+                    ax.set_ylabel("y [mm]")#, fontsize=self.dict_fontsize["label"])
+                    ax.set_xticklabels([f"{x_tick * self.pixel_size:.2f}" for x_tick in x_ticks])#, fontsize=self.dict_fontsize["ticks"])
+                    ax.set_yticklabels([f"{y_tick * self.pixel_size:.2f}" for y_tick in y_ticks])#, fontsize=self.dict_fontsize["ticks"])
+                    
+                if unit == "px":
+                    ax.set_xlabel("x [px]")#, fontsize=self.dict_fontsize["label"])
+                    ax.set_ylabel("y [px]")#, fontsize=self.dict_fontsize["label"])
+                    ax.set_xticklabels([f"{x_tick:.0f}" for x_tick in x_ticks])#, fontsize=self.dict_fontsize["ticks"])
+                    ax.set_yticklabels([f"{y_tick:.0f}" for y_tick in y_ticks])#, fontsize=self.dict_fontsize["ticks"])
+                
+                # add colorbar
+                # sm = plt.cm.ScalarMappable(
+                #     cmap=cmap,
+                #     norm=norm,
+                #     )
+                # sm.set_array([])
+                # cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
+                # cbar_ticks = cbar.get_ticks()
+                # cbar.set_ticks(cbar_ticks)
+                # if language == "fr":
+                #     cbar.set_label("Labels")#, fontsize=self.dict_fontsize["label"])
+                # if language == "en":
+                #     cbar.set_label("Labels")#, fontsize=self.dict_fontsize["label"])
+                # cbar.set_ticklabels([])
+                
+                # if labels_used == "global":
+                #     cbar.set_ticklabels([f"{np.abs(cbar_tick)+0.5:.0f}" for cbar_tick in cbar_ticks])#, fontsize=self.dict_fontsize["ticks"])
+                # else:
+                #     for i, cbar_tick in enumerate(cbar_ticks):
+                #         cbar.ax.text(
+                #             0.5, cbar_tick - 0.5,
+                #             f"{int(cbar_tick)}",
+                #             ha="center", va="center",
+                #             # fontsize=self.dict_fontsize["ticks"],
+                #         )
+
+                # plt.show()
+                plt.savefig(f"/home/abad-ale/Documents/Images_Assign_ID/Assign_ID_frame_{frame_id}.png")
         
         return df_tracked
     
@@ -1400,7 +1413,7 @@ class ParticleAnalyser(QObject):
             ][["frame", "x", "y"]].copy()
 
     @staticmethod
-    def _lap_tracking(df: pd.DataFrame = None, max_dist: int = 15) -> pd.DataFrame:
+    def _lap_tracking(df: pd.DataFrame = None, max_dist: int = None) -> pd.DataFrame:
         """ Apply lap tracking to assign label """
         
         df = df.copy()
@@ -1436,6 +1449,11 @@ class ParticleAnalyser(QObject):
                 continue
                 
             row_ind, col_ind = linear_sum_assignment(cost)
+            
+            # from scipy.sparse import csr_array
+            # from scipy.sparse.csgraph import min_weight_full_bipartite_matching
+            # biadjacency = csr_array(linear_sum_assignment(cost))
+            # row_ind, col_ind = min_weight_full_bipartite_matching(biadjacency)
             
             assigned_curr = set()
             for i, j in zip(row_ind, col_ind):
@@ -1583,7 +1601,7 @@ class ParticleAnalyser(QObject):
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
         
-            # display 
+            # display
             if do_plot:
 
                 _, ax = plt.subplots()
@@ -1598,10 +1616,10 @@ class ParticleAnalyser(QObject):
                 # plot coords + radius 
                 for pt, di in zip(pts, d):
                     ax.plot(pt[0], pt[1])
-                    ax.add_patch(plt.Circle((pt[0], pt[1]), di/2), color="b", fill=False)
+                    ax.add_patch(plt.Circle((pt[0], pt[1]), di/2, color="b", fill=False))
 
                     # plot research radius
-                    ax.add_patch(plt.Circle((pt[0], pt[1]), r_max), color="k", fill=False)
+                    ax.add_patch(plt.Circle((pt[0], pt[1]), r_max, color="k", fill=False))
                 
                 plt.show()
             
