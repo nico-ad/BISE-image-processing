@@ -992,66 +992,66 @@ class ParticleAnalyser(QObject):
             # print("Assign_ID_ROI done !!!")
             print("done")
             
-            # print("UPDATE DIAMETERS ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser.UpdateDiameters(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "UpdateDiameters"))
-            # # print("UpdateDiameters done !!!")
-            # print("done")
-            
-            # print("CLUSTER ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Cluster(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Cluster"))
-            # # print("Cluster done !!!")
-            # print("done")
-
-            # print("MASS ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Mass(dataframe=df, density=2230.0)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Mass"))
-            # # print("Mass done !!!")
-            # print("done")
-            
-            # print("VELOCITY ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Velocity(dataframe=df, time_interval=1/8000)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Velocity"))
-            # # print("Velocity done !!!")
-            # print(" done")
-            
-            # print("ACCELERATION ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Acceleration(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Acceleration"))
-            # # print("Acceleration done !!!")
-            # print(" done")
-            
-            # print("MOMENTUM ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Momentum(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Momentum"))
-            # # print("Momentum done !!!")
-            # print(" done")
-            
-            # print("KINETIC ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.KineticEnergy(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "KineticEnergy"))
-            # # print("KineticEnergy done !!!")
-            # print("done")
-            
+            print("UPDATE DIAMETERS ...", end=" ")
             # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Collision(dataframe=df)
-            # df.to_csv(final_path)
-            # queue.put(("tick", task_id, "Collision"))
+            df = analyser.UpdateDiameters(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "UpdateDiameters"))
+            # print("UpdateDiameters done !!!")
+            print("done")
+            
+            print("CLUSTER ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Cluster(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Cluster"))
+            # print("Cluster done !!!")
+            print("done")
+
+            print("MASS ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Mass(dataframe=df, density=2230.0)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Mass"))
+            # print("Mass done !!!")
+            print("done")
+            
+            print("VELOCITY ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Velocity(dataframe=df, time_interval=1/8000)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Velocity"))
+            # print("Velocity done !!!")
+            print(" done")
+            
+            print("ACCELERATION ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Acceleration(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Acceleration"))
+            # print("Acceleration done !!!")
+            print(" done")
+            
+            print("MOMENTUM ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Momentum(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Momentum"))
+            # print("Momentum done !!!")
+            print(" done")
+            
+            print("KINETIC ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.KineticEnergy(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "KineticEnergy"))
+            # print("KineticEnergy done !!!")
+            print("done")
+            
+            df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Collision(dataframe=df)
+            df.to_csv(final_path)
+            queue.put(("tick", task_id, "Collision"))
             
             df.to_csv(final_path)
             # queue.put(("done", task_id, str(final_path)))
@@ -1118,7 +1118,7 @@ class ParticleAnalyser(QObject):
         def _assign_global_labels(
                 df: pd.DataFrame = None,
                 max_dist: int = None,
-                do_plot: bool = True,
+                do_plot: bool = False,
         ):
             
             df = df.copy()
@@ -1239,7 +1239,7 @@ class ParticleAnalyser(QObject):
             rois = _generate_roi(xmin, xmax, ymin, ymax, roi_w, roi_h, overlap)
 
             df_local = _track_all_rois_mp(df, rois, max_dist=max_dist, nproc=nproc)
-            df_final = _assign_global_labels(df_local, max_dist)
+            df_final = _assign_global_labels(df_local, max_dist, do_plot=do_plot)
 
             return df_final, rois
     
@@ -1346,8 +1346,7 @@ class ParticleAnalyser(QObject):
                         ax.add_patch(plt.Circle((x, y), d/2, color="b", fill=False))
                         
                         # add neighboor distance
-                        r_max = np.max(group_frames["diameter"]) / 2
-                        ax.add_patch(plt.Circle((x, y), r_max, color="r", fill=False))
+                        ax.add_patch(plt.Circle((x, y), max_dist, color="r", fill=False))
                         
                 
                 ax.set_xlim(0, img_size[1])
