@@ -1048,10 +1048,10 @@ class ParticleAnalyser(QObject):
             # print("KineticEnergy done !!!")
             print("done")
             
-            df = pd.DataFrame(pd.read_csv(path))
-            df = analyser_class.Collision(dataframe=df)
-            df.to_csv(final_path)
-            queue.put(("tick", task_id, "Collision"))
+            # df = pd.DataFrame(pd.read_csv(path))
+            # df = analyser_class.Collision(dataframe=df)
+            # df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Collision"))
             
             df.to_csv(final_path)
             # queue.put(("done", task_id, str(final_path)))
@@ -1755,7 +1755,10 @@ class ParticleAnalyser(QObject):
         required_cols = {"vx", "vy", "velocity", "time", "dt"}
         missing = required_cols- set(df.columns)
         if missing:
-            msg = f"Missing requiered column(s) : {missing}"
+            msg = f"Missing read_csv(path))"
+            # df = analyser_class.Collision(dataframe=df)
+            # df.to_csv(final_path)
+            # queue.put(("tick", task_id, equiered column(s) : {missing}"
             raise KeyError(msg)
         
         if not all(col in dataframe.columns for col in ["ax", "ay", "acceleration"]):
