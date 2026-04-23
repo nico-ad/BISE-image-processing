@@ -1554,7 +1554,7 @@ class VideoMaker(QObject):
         do_display_time:bool=True,
         rotate:int=0,
         freq: float = None,
-    ):
+    ) -> None:
         
         if not Path(load_images).exists():
             msg = "File to load images do not exists"
@@ -1594,8 +1594,7 @@ class VideoMaker(QObject):
         
         min, max = images_range[0], images_range[1]
         # font = ImageFont.truetype("arial.ttf", size=42)
-        import time
-        import sys
+        
         for i, (curr_img, img_name) in enumerate(zip(list(np.linspace(min, max+1, max-min+2, dtype=np.int16)), list_images)):
             
             pil_img = Image.open(Path(img_name)).convert("RGB").rotate(rotate, expand=True)
