@@ -774,41 +774,50 @@ class ImageViewer(QWidget):
             data_z_all.append(np.full(len(x), z))
         
         # flatten
-        data_x_all = np.concatenate(data_x_all)
-        data_y_all = np.concatenate(data_y_all)
-        data_z_all = np.concatenate(data_z_all)
+        data_x_all = np.concatenate(data_x_all).astype(float) # coordination number
+        data_y_all = np.concatenate(data_y_all).astype(float) # number particule / proportion
+        data_z_all = np.concatenate(data_z_all).astype(float) # time / frame
         
-        print("LOL")
-        print(np.min(data_y_all), np.max(data_y_all))
-        
-        # down sample
-        if len(data_y_all) > 100: down_sample = 5
-        else: down_sample = 0
-        data_x_all = data_x_all[::down_sample]
-        data_y_all = np.array(data_y_all[::down_sample], dtype=float)
-        data_z_all = np.array(data_z_all[::down_sample], dtype=float)
-
-        # normalize counts
+        # number of different coordination numbers
         num_coord_number = len(np.unique(data_x_all))
+
+        # # down sample
+        # if len(data_y_all) > 100:
+        #     downsample = 1
+        #     l = np.inf
+        #     while l < 100:
+        #         l = len(data_x_all[::downsample*num_coord_number])
+        #         downsample += 1
+        # else: downsample = 1
+        # data_x_all = data_x_all[::downsample*num_coord_number]
+        # data_y_all = np.array(data_y_all[::downsample*num_coord_number], dtype=float)
+        # data_z_all = np.array(data_z_all[::downsample*num_coord_number], dtype=float)
+        # print(downsample)
+        # print(len(data_x_all), len(data_y_all), len(data_z_all))
+        
+        # normalize counts
         if data_dict["nomalize"]:
             for i in range(0, len(data_z_all), num_coord_number):
 
                 idx = np.arange(i, i+num_coord_number, dtype=int)
-                total = np.sum(data_y_all[idx])
                 
-                if total != 0: data_y_all[idx] = data_y_all[idx] / total
-                else: data_y_all[idx] = 0.0
+                data_y_all[idx] = np.array(data_y_all[idx]).astype(float)
+                
+                total = np.array([np.sum(data_y_all[idx])] * len(idx), dtype=float)
+                
+                if all(total) != 0: data_y_all[idx] = data_y_all[idx] / total
+                else: data_y_all[idx] = [0.0] * len(idx)
         
         z0 = np.full_like(data_y_all, data_z_all)
         dx = np.ones_like(data_x_all) * 0.8
-        dy = np.ones_like(data_y_all) * 1.0
+        dy = - data_y_all
         dz = np.ones_like(data_z_all) * (data_z_all[1] - data_z_all[0])
         
-        print()
-        print(np.min(data_x_all), np.max(data_x_all), data_dict["x_unit"])
-        print(np.min(data_y_all), np.max(data_y_all), data_dict["y_unit"])
-        print(np.min(data_z_all), np.max(data_z_all), data_dict["z_unit"])
-        print()
+        # print()
+        # print(np.min(data_x_all), np.max(data_x_all), data_dict["x_unit"])
+        # print(np.min(data_y_all), np.max(data_y_all), data_dict["y_unit"])
+        # print(np.min(data_z_all), np.max(data_z_all), data_dict["z_unit"])
+        # print()
         
         # # color by time
         # norm = Normalize(vmin=np.min(data_z_all), vmax=np.max(data_z_all))
@@ -817,8 +826,8 @@ class ImageViewer(QWidget):
         self.ax.bar3d(
             data_x_all, data_z_all, data_y_all,
             dx, dz, dy,
-            shade=True,
-            # color=colors, 
+            # shade=True,
+            # color=colors,
         )
         
         # # collect data
@@ -1053,8 +1062,8 @@ class ImageViewer(QWidget):
             print(y_ticks)
 
             z_ticks = self.ax.get_zticks()
-            # if data_dict["nomalize"]:
-            #     z_ticks = np.linspace(0, 1.0, 5, dtype=float)
+            if data_dict["nomalize"]:
+                z_ticks = np.linspace(0, 1.0, 5, dtype=float)
             self.ax.set_zticks(z_ticks)
             self.ax.set_zticklabels([f"{z_tick:.2f}" for z_tick in z_ticks], fontsize=self.dict_fontsize["ticks"])
             self.ax.set_zlabel(data_dict["y_label"], fontsize=self.dict_fontsize["label"])

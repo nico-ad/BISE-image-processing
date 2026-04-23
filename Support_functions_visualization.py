@@ -998,9 +998,10 @@ class VisualizationFunctions():
         time_interval : float = 1/8000,
         pixel_size: float = None,
         x_unit: str = "coord_num",
-        y_unit: str = "count",
+        y_unit: str = "frequency",
         z_unit: str = "time_s",
-    ):
+        normalize: bool = True,
+    ) -> list:
         
         result = []
         
@@ -1037,6 +1038,7 @@ class VisualizationFunctions():
 
             unit_factor_y = {
                 "count": 1,
+                "frequency": 1,
             }[y_unit]
             
             unit_factor_z = {
@@ -1052,6 +1054,7 @@ class VisualizationFunctions():
 
             unit_label_y = {
                 "count": "Counts",
+                "frequency": "Frequency",
             }[y_unit]
 
             unit_label_z = {
@@ -1081,42 +1084,42 @@ class VisualizationFunctions():
                 "z_label": unit_label_z,
             }
 
-            # display 
-            if True:
+            # # display 
+            # if True:
 
-                _, ax = plt.subplots()
-                for frame_id, group in sub_df.groupby("frame"):
+            #     _, ax = plt.subplots()
+            #     for frame_id, group in sub_df.groupby("frame"):
 
-                    print(f"Current frame : {frame_id}")
+            #         print(f"Current frame : {frame_id}")
 
-                    x = group["x"].to_numpy()
-                    y = group["y"].to_numpy()
-                    d = group["diameter_mean"].to_numpy()
-                    paths = group["main_path"].to_numpy()
-                    names = group["name"].to_numpy()
+            #         x = group["x"].to_numpy()
+            #         y = group["y"].to_numpy()
+            #         d = group["diameter_mean"].to_numpy()
+            #         paths = group["main_path"].to_numpy()
+            #         names = group["name"].to_numpy()
                     
-                    r_max = d.max()
-                    print(f"R_max = {r_max:.2f} px")
+            #         r_max = d.max()
+            #         print(f"R_max = {r_max:.2f} px")
 
-                    ax.set_title(f"Frame {frame_id}")
+            #         ax.set_title(f"Frame {frame_id}")
 
-                    name = Path(paths[0],names[0])
-                    print(f"image name : {name}")
-                    img = self._load_image(name, invert=False, rotate_image=0)
-                    ax.imshow(img, cmap="gray")
+            #         name = Path(paths[0],names[0])
+            #         print(f"image name : {name}")
+            #         img = self._load_image(name, invert=False, rotate_image=0)
+            #         ax.imshow(img, cmap="gray")
                     
-                    # plot coords + radius 
-                    for pt1, pt2, di in zip(x, y, d):
-                        ax.plot(pt1, pt2)
-                        ax.add_patch(plt.Circle((pt1, pt2), di/2, color="k", fill=False))
+            #         # plot coords + radius 
+            #         for pt1, pt2, di in zip(x, y, d):
+            #             ax.plot(pt1, pt2)
+            #             ax.add_patch(plt.Circle((pt1, pt2), di/2, color="k", fill=False))
 
-                        # plot research radius
-                        # for _, g in group.groupby("label"):
-                        #     coord_num = g["coordination"]
-                        #     labels_touched = 
-                        #     if  != 0:
-                        #     ax.add_patch(plt.Circle((pt1, pt2), r_max, color="k", fill=False))
-                plt.show()
+            #             # plot research radius
+            #             # for _, g in group.groupby("label"):
+            #             #     coord_num = g["coordination"]
+            #             #     labels_touched = 
+            #             #     if  != 0:
+            #             #     ax.add_patch(plt.Circle((pt1, pt2), r_max, color="k", fill=False))
+            #     plt.show()
 
             result.append(data_dict)
         
