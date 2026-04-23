@@ -253,9 +253,9 @@ class HelperTab2(QWidget):
         
         folder = self.folders_to_analyse[self.current_analysis_index]
         self.files = self.files_to_analyse[self.current_analysis_index]
+        print(f"current folder index {self.current_analysis_index}")
         
-        save_names = Path(folder[0]).parents[0] / Path(f"Particle_analysis_Essai_7_4x10mm3_{self.current_analysis_index+2}_8000Hz_512_640.csv")
-        print(save_names)
+        save_names = Path(folder).parent / Path(f"Particle_analysis_Essai_7_4x10mm3_{self.current_analysis_index+2}_8000Hz_512_640.csv")
         
         params = self._read_parameters()
         
