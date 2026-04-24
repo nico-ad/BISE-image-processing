@@ -1549,10 +1549,10 @@ class VideoMaker(QObject):
         path_save,
         video_name,
         images_range: str|np.ndarray|list = [0, 34939],
-        frame_rate=30,
-        format_video=".avi",
-        do_display_time:bool=True,
-        rotate:int=0,
+        frame_rate: int = 30,
+        format_video: str = ".avi",
+        do_display_time: bool = True,
+        rotate: int = 0,
         freq: float = None,
     ) -> None:
         
@@ -1573,7 +1573,6 @@ class VideoMaker(QObject):
         # list_images = list_images[images_range[0] : images_range[1]]
 
         total = len(list_images)
-        print(f"Total images : {total}")
 
         img = np.array(Image.open(Path(list_images[0])))
         if img.ndim == 3:  # Convert color image to inverted grayscale
@@ -1587,7 +1586,6 @@ class VideoMaker(QObject):
         # if video_name is None:
         #     video_name = f"{str(path_save).split('\\')[-2]}_{str(path_save).split('\\')[-1]}_{str(load_images).split('\\')[-1]}_images_{images_range[0]}_{images_range[1]}.avi"
 
-        print(f"Path to save : {path_save}")
         video_writer = cv2.VideoWriter(
             Path(path_save) / Path(video_name), fourcc, frame_rate, (width, height)
         )
@@ -1615,4 +1613,4 @@ class VideoMaker(QObject):
         video_writer.release()
         self.finished.emit()
 
-        print("Videos created")
+        # print("Videos created")

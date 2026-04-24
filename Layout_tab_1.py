@@ -230,7 +230,11 @@ class HelperTab1(QWidget):
         self.video_btn.clicked.connect(self._make_video)
         
         # progress bar video creation
-        self.progress_video_creation = QProgressBar()
+        self.progress_video_creation = QProgressBar(self.video_btn)
+        self.progress_video_creation.setGeometry(
+            0, 0,
+            self.video_btn.width(), self.video_btn.height(),
+        )
         self.progress_video_creation.setStyleSheet("""
         QProgressBar {
             background: rgba(0, 0, 0, 120);
@@ -238,7 +242,7 @@ class HelperTab1(QWidget):
             border: none;
             text-align: center;
         }
-        QProgressBar::chunck {
+        QProgressBar::chunk {
             background-color: #05B8CC;
             }
         """)
@@ -841,77 +845,85 @@ class HelperTab1(QWidget):
 
     def update_overlay(self):
         """ Adjust progress bar to video button """
-        self.progress_video_creation.setGeometry(self.video_btn.geometry())
+
+        self.progress_video_creation.setGeometry(
+            0, 0,
+            self.video_btn.width(), self.video_btn.height()
+        )
     
     def _make_video(self):
         """ Create video from folders images """
 
-        # set viceo frequency
-        freq_acq = self._read_parameters()["frequency acquisition"]
-
         if len(self.parent.folders_list) == 0:
-            return None
+            return
         
         # desabled button
         self.video_btn.setEnabled(False)
 
-        for i in range(len(self.parent.folders_list)):
+        self.current_index = 0
+        self.folders = self.parent.folders_list
 
-            print(f"Path folder : {Path(self.parent.folders_list[i])}")
-            print(f"Path video file {Path(self.parent.folders_list[i]).parents[0]}")
+        self._start_next_video()
+    
+    def _start_next_video(self):
+        """ Start video creation """
 
-            # show progress bar
-            self.progress_video_creation.setValue(0)
-            self.progress_video_creation.show()
-            self.progress_video_creation.raise_()
-
-            # creat thread for video creation
-            self.thread = QThread()
-
-            # creat VideoMaker instance
-            self.worker = self.video_Maker
-            
-            # connect signals
-            self.worker.progress_video_creation.connect(self.progress_video_creation.setValue)
-            self.worker.finished.connect(self.thread.quit)
-            self.worker.finished.connect(self._on_finished_video_creation)
-
-            # move worker to thread
-            self.worker.moveToThread(self.thread)
-
-            # start video creation
-            self.thread.started.connect(
-                partial(
-                    self.video_Maker.Make_video(
-                    load_images=Path(self.parent.folders_list[i]),
-                    path_save=Path(self.parent.folders_list[i]).parents[0],
-                    video_name="Video.avi",
-                    # images_range="all",
-                    do_display_time=False,
-                    freq=freq_acq,
-                    )
-                )
-            )
-            
-            # start thread
-            self.thread.start()
+        # set viceo frequency
+        freq_acq = self._read_parameters()["frequency acquisition"]
         
         # desabled button
-        self.video_btn.setEnabled(True)
-
-        # for i in range(len(self.parent.folders_list)):
-            
-        #     print(f"Path folder : {Path(self.parent.folders_list[i])}")
-        #     print(f"Path video file {Path(self.parent.folders_list[i]).parents[0]}")
+        if self.current_index >= len(self.folders):
+            self.video_btn.setEnabled(True)
+            return
         
-        #     self.video_Maker.Make_video(
-        #         load_images=Path(self.parent.folders_list[i]),
-        #         path_save=Path(self.parent.folders_list[i]).parents[0],
-        #         video_name="Video",
-        #         images_range="all",
-        #         do_display_time=False,
-        #         freq=freq_acq,
-        #     )
+        folder = self.folders[self.current_index]
+
+        # show progress bar
+        self.progress_video_creation.setValue(0)
+        self.progress_video_creation.show()
+        self.progress_video_creation.raise_()
+
+        # creat thread for video creation
+        self.thread = QThread()
+
+        # creat VideoMaker instance
+        # self.worker = self.video_Maker
+        self.worker = func_preview.VideoMaker()
+
+        # move worker to thread
+        self.worker.moveToThread(self.thread)
+
+        # start video creation
+        self.thread.started.connect(lambda: self.worker.Make_video(
+            load_images=Path(Path(folder)),
+            path_save=Path(Path(folder)).parents[0],
+            video_name="Video.avi",
+            # images_range="all",
+            do_display_time=False,
+            freq=freq_acq,
+            )
+        )
+
+        # connect signals
+        self.worker.progress_video_creation.connect(self.progress_video_creation.setValue)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self._on_finished_video_creation)
+
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+            
+        # start thread
+        self.thread.start()
 
     def _on_finished_video_creation(self):
+        """ start new video """
+        
         self.progress_video_creation.hide()
+
+        self.thread.quit()
+        self.thread.wait()
+
+        self.current_index += 1
+        self._start_next_video()
+
+        
