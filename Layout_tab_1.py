@@ -925,5 +925,4 @@ class HelperTab1(QWidget):
 
         self.current_index += 1
         self._start_next_video()
-
         

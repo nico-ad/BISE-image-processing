@@ -158,32 +158,82 @@ class VisualizationFunctions():
                     elif rotate_image == 270: img = img.transpose(Image.ROTATE_270)
             
             return np.array(img, dtype=np.uint8)
-    
-    def _compute_coordination_number(
-            self,
-            df: pd.DataFrame = None,
-            tol: float = 1e-6,
-    ):
+
+    def _compute_coordination_number(df: pd.DataFrame = None, do_plot: bool = True) -> pd.DataFrame:
+        """ Compute coordination number for each particle """
         
         df = df.copy()
         df["coordination"] = 0
         
-        for frame_id, group in df.groupby("frame"):
+        for _, group in df.groupby("frame"):
+
             pts = group[["x", "y"]].values
             d = group["diameter_mean"].values
+
             tree = cKDTree(pts)
-            
             coord = np.zeros(len(group), dtype=int)
 
+            # define max raduis
+            # r_max = (d[:, None] + d[None, :]).max() / 2
+            r_max = d.max()
+
             for i in range(len(group)):
-                r = (d[i] - d.max()) / 2 + tol
-                neighbors = tree.query_ball_point(pts[i], r)
+                # r_max = (d[i] - d.max()) / 2 + tol
+                neighbors = tree.query_ball_point(pts[i], r_max)
                 neighbors.remove(i)
-                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i]+d[j])/2 + tol)]
+                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i] + d[j])/2)]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
+        
+            # display
+            if do_plot:
+
+                _, ax = plt.subplots()
+
+                name = Path(
+                df['main_path'].iloc[0],
+                df['name'].iloc[0]
+                )
+                img = Image.open(name).convert("L")
+                img = np.array(img, dtype=np.float32)
+                ax.imshow(img, cmap="gray")
+                
+                # plot coords + radius 
+                for pt, di in zip(pts, d):
+                    ax.plot(pt[0], pt[1])
+                    ax.add_patch(plt.Circle((pt[0], pt[1]), di/2, color="b", fill=False))
+
+                    # plot research radius
+                    ax.add_patch(plt.Circle((pt[0], pt[1]), r_max, color="k", fill=False))
+                
+                plt.show()
             
-            return df
+        return df
+    
+    # def _compute_coordination_number(
+    #         self,
+    #         df: pd.DataFrame = None,
+    # ):
+        
+    #     df = df.copy()
+    #     df["coordination"] = 0
+        
+    #     for frame_id, group in df.groupby("frame"):
+    #         pts = group[["x", "y"]].values
+    #         d = group["diameter_mean"].values
+    #         tree = cKDTree(pts)
+            
+    #         coord = np.zeros(len(group), dtype=int)
+
+    #         for i in range(len(group)):
+    #             r = (d[i] - d.max()) / 2 + tol
+    #             neighbors = tree.query_ball_point(pts[i], r)
+    #             neighbors.remove(i)
+    #             neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i]+d[j])/2 + tol)]
+    #             coord[i] = len(neighbors)
+    #         df.loc[group.index, "coordination"] = coord
+            
+    #         return df
     
     # def _compute_friction_velocity(
     #     self,
@@ -1084,42 +1134,34 @@ class VisualizationFunctions():
                 "z_label": unit_label_z,
             }
 
-            # # display 
-            # if True:
+            # display
+            if True:
 
-            #     _, ax = plt.subplots()
-            #     for frame_id, group in sub_df.groupby("frame"):
+                _, ax = plt.subplots()
 
-            #         print(f"Current frame : {frame_id}")
-
-            #         x = group["x"].to_numpy()
-            #         y = group["y"].to_numpy()
-            #         d = group["diameter_mean"].to_numpy()
-            #         paths = group["main_path"].to_numpy()
-            #         names = group["name"].to_numpy()
+                name = Path(
+                df['main_path'].iloc[0],
+                df['name'].iloc[0]
+                )
+                img = Image.open(name).convert("L")
+                img = np.array(img, dtype=np.float32)
+                ax.imshow(img, cmap="gray")
+                
+                # plot coords + radius
+                for fr, group in df.groupby("frame"):
+                    x = group["x"].values
+                    y = group["y"].values
+                    di = group["diameter_mean"].values
+                    # x, y, d = group[["x", "y", "diameter_mean"]].values
                     
-            #         r_max = d.max()
-            #         print(f"R_max = {r_max:.2f} px")
+                    for i, j, d in zip(x, y, di):
+                        ax.scatter(x, y)
+                        ax.add_patch(plt.Circle((i, j), d/2, color="b", fill=False))
 
-            #         ax.set_title(f"Frame {frame_id}")
-
-            #         name = Path(paths[0],names[0])
-            #         print(f"image name : {name}")
-            #         img = self._load_image(name, invert=False, rotate_image=0)
-            #         ax.imshow(img, cmap="gray")
-                    
-            #         # plot coords + radius 
-            #         for pt1, pt2, di in zip(x, y, d):
-            #             ax.plot(pt1, pt2)
-            #             ax.add_patch(plt.Circle((pt1, pt2), di/2, color="k", fill=False))
-
-            #             # plot research radius
-            #             # for _, g in group.groupby("label"):
-            #             #     coord_num = g["coordination"]
-            #             #     labels_touched = 
-            #             #     if  != 0:
-            #             #     ax.add_patch(plt.Circle((pt1, pt2), r_max, color="k", fill=False))
-            #     plt.show()
+                        # plot research radius
+                        ax.add_patch(plt.Circle((i, j), d.max(), color="k", fill=False))
+                  
+                    plt.show()
 
             result.append(data_dict)
         
@@ -2595,7 +2637,6 @@ class VisualizationFunctions():
         time_interval: float = 1/8000,
         frames: list|np.ndarray = None,
         labels: list|np.ndarray = None,
-        change_main_path_images: str|list|Path = None,
         path_save: str = None,
         do_save: bool = False,
         x_unit: str = "time",
@@ -2605,17 +2646,18 @@ class VisualizationFunctions():
         fit_function: str = "sigmoid",
         use_mean: bool = False,
         kernel_size: int = None,
-        velocity: str|Path = None,
+        velocity: pd.DataFrame = None,
     ):
 
         if velocity is None:
             velocity = [None] * len(dataframe)
         
-        if len(dataframe) > 10:
-            colors = cm.get_cmap("tab20")
-        else:
-            colors = cm.get_cmap("tab10")
-        
+        if path_save is None and do_save:
+            msg = "Must specify a path to save picture"
+            raise TypeError(msg)
+        if path_save is not None and do_save is None:
+            do_save = True
+
         results= []
         
         for run, data in enumerate(dataframe):
@@ -2630,10 +2672,17 @@ class VisualizationFunctions():
             else:
                 msg = "'frames' must be int, list or np.ndarray of int"
                 raise TypeError(msg)
+
+            # ----- labels
+            if labels == "all" or labels is None:
+                selected_labels = sorted(data["label"].unique())
+            else:
+                selected_labels = labels
             
             # ------ filtering
             mask = (
-                data["frame"].isin(frames)
+                data["frame"].isin(selected_frames) &
+                data["label"].isin(selected_labels)
             )
             
             sub_df = data.loc[
@@ -2648,24 +2697,40 @@ class VisualizationFunctions():
             unit_factor_x = {
                 "frames": 1,
                 "time": time_interval,
+                "f_velocity": 1.0,  # friction velocity
+                "m_velocity"        # middle duct velocity
+                "reynolds": 1.0,
+            }[x_unit]
+
+            unit_label_x = {
+                "frames": "Frames",
+                "time": f"Time $[s]$",
+                "f_velocity": f"Friction velocity $[m/s]$",      # friction velocity
+                "m_velocity": f"Middle duct velocity $[m/s]$",   # middle duct velocity
+                "reynolds": "Reynolds number",
             }[x_unit]
             
             unit_factor_y = {
                 "fraction": 1,
             }[y_unit]
+
+            unit_label_y = {
+                "fraction": f"$K_{{MeS}}$",
+            }[y_unit]
             
-            # # ----- velocity
-            # mask = (
-            #     data["frame"].isin(frames)
-            # )
-            
-            # sub_df = data.loc[
-            #     mask,
-            #     ["frame", "timestamp", "voltage", "velocity"]
-            # ].copy()
-            
-            # if sub_df.empty:
-            #     continue
+            # ----- velocity
+            if velocity is not None:
+                mask = (
+                    velocity["frame"].isin(selected_frames)
+                )
+                velocity = velocity.loc[
+                    mask,
+                    ["frame", "velocity"]
+                ].copy()
+                velocity["friction"] = 0.0564 * velocity["velocity"] ** (7/8)
+                
+                if velocity.empty:
+                    continue
             
             # ----- group data
             grouped = sub_df.groupby("frame")
@@ -2679,9 +2744,8 @@ class VisualizationFunctions():
                 "run": [run],
                 "x_unit": unit_factor_x,
                 "y_unit": unit_factor_y,
-                "x_log": False,
-                "x_label": f"X [{x_unit}]",
-                "y_label": f"Y [{y_unit}]",
+                "x_label": unit_label_x,
+                "y_label": unit_label_y,
             }
             results.append(data_dict)
             
