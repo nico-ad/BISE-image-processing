@@ -1590,14 +1590,12 @@ class ParticleAnalyser(QObject):
             coord = np.zeros(len(group), dtype=int)
 
             # define max raduis
-            # r_max = (d[:, None] + d[None, :]).max() / 2
-            r_max = d.max()
+            r_max = d.max() + 0.1 * d.max()
 
             for i in range(len(group)):
-                # r_max = (d[i] - d.max()) / 2 + tol
                 neighbors = tree.query_ball_point(pts[i], r_max)
                 neighbors.remove(i)
-                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i] + d[j])/2)]
+                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i])) >= (d[i]/2)]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
         

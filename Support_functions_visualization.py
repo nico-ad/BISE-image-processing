@@ -1058,26 +1058,41 @@ class VisualizationFunctions():
         for i, data in enumerate(dataframe):
 
             mask_keys = [
-                "frame", "time", "dt",
+                "frame", "time", "dt", "label",
                 "coordination",
                 "x", "y", "diameter_mean", "main_path", "name",
                 ]
 
-            if isinstance(frames, int):
-                frames = [frames]
+            # ----- frames
             if frames is None:
-                frames = data["frame"].unique()
-            if not isinstance(frames, (int, np.ndarray, list)):
-                msg = "'frames' must be int, list or ndarray of int"
+                selected_frames = data["frame"].unique()
+            elif isinstance(frames, int):
+                selected_frames = [frames]
+            elif isinstance(frames, (list, np.ndarray)):
+                selected_frames = frames
+            else:
+                msg = "'frames' must be int, list or np.ndarray of int"
                 raise TypeError(msg)
 
+            # ----- labels
             if labels == "all" or labels is None:
-                labels = sorted(data["label"].unique())
+                selected_labels = sorted(data["label"].unique())
+            else:
+                selected_labels = labels
+            
+            # ----- filtering
+            mask = (
+                data["frame"].isin(selected_frames) &
+                data["label"].isin(selected_labels)
+            )
 
-            mask_frames = data["frame"].isin(frames)
-            mask = mask_frames
-            sub_df = data.loc[mask, mask_keys].copy()
-            frames = sub_df["frame"].unique()
+            sub_df = data.loc[
+                mask,
+                mask_keys,
+            ].copy()
+            
+            if sub_df.empty:
+                continue
             
             time_interval = sub_df["dt"].unique()
 
@@ -1117,10 +1132,11 @@ class VisualizationFunctions():
             grouped_frames = df.groupby("frame")
 
             max_coord_number = np.max(df["coordination"].unique())
+            print(max_coord_number)
             data_dict = {
                 "hist_3d": True,
-                "x": [np.histogram(group["coordination"], bins=np.linspace(0, max_coord_number, max_coord_number+1, dtype=int), density=False)[1] for _, group in grouped_frames],
-                "y": [np.histogram(group["coordination"], bins=np.linspace(0, max_coord_number, max_coord_number+1, dtype=int), density=False)[0] for _, group in grouped_frames],
+                "x": [np.histogram(group["coordination"], bins=np.arange(0, max_coord_number+2, 1, dtype=int), density=False)[1] for _, group in grouped_frames],
+                "y": [np.histogram(group["coordination"], bins=np.arange(0, max_coord_number+2, 1, dtype=int), density=False)[0] for _, group in grouped_frames],
                 "z": [group["frame"].unique() for _, group in grouped_frames],
                 "run": [i],
                 # "fit": [fit_func],
@@ -1134,34 +1150,36 @@ class VisualizationFunctions():
                 "z_label": unit_label_z,
             }
 
-            # display
-            if True:
+            # # display
+            # if True:
 
-                _, ax = plt.subplots()
+            #     _, ax = plt.subplots()
 
-                name = Path(
-                df['main_path'].iloc[0],
-                df['name'].iloc[0]
-                )
-                img = Image.open(name).convert("L")
-                img = np.array(img, dtype=np.float32)
-                ax.imshow(img, cmap="gray")
+            #     name = Path(
+            #     df['main_path'].iloc[0],
+            #     df['name'].iloc[0]
+            #     )
+            #     img = Image.open(name).convert("L")
+            #     img = np.array(img, dtype=np.float32)
+            #     ax.imshow(img, cmap="gray")
                 
-                # plot coords + radius
-                for fr, group in df.groupby("frame"):
-                    x = group["x"].values
-                    y = group["y"].values
-                    di = group["diameter_mean"].values
-                    # x, y, d = group[["x", "y", "diameter_mean"]].values
+            #     # plot coords + radius
+            #     for _, group in df.groupby("frame"):
+            #         x = group["x"].values
+            #         y = group["y"].values
+            #         di = group["diameter_mean"].values
+            #         r_max = d.max()
+            #         tol = 0.1 * r_max
                     
-                    for i, j, d in zip(x, y, di):
-                        ax.scatter(x, y)
-                        ax.add_patch(plt.Circle((i, j), d/2, color="b", fill=False))
+            #         for i, j, d in zip(x, y, di):
+            #             ax.scatter(x, y)
+            #             ax.add_patch(plt.Circle((i, j), d/2, color="b", fill=False))
 
-                        # plot research radius
-                        ax.add_patch(plt.Circle((i, j), d.max(), color="k", fill=False))
+            #             # plot research radius
+            #             # ax.add_patch(plt.Circle((i, j), r_max, color="k", fill=False))
+            #             ax.add_patch(plt.Circle((i, j), r_max+tol, color="r", fill=False))
                   
-                    plt.show()
+            #         plt.show()
 
             result.append(data_dict)
         
@@ -5471,9 +5489,6 @@ class VisualizationFunctions():
             # ----- labels
             if labels == "all" or labels is None:
                 selected_labels = sorted(data["label"].unique())
-                # print(len(selected_labels))
-                # idx = selected_labels == -1
-                # selected_labels = selected_labels[selected_labels != idx]
             else:
                 selected_labels = labels
             

@@ -780,6 +780,7 @@ class ImageViewer(QWidget):
         
         # number of different coordination numbers
         num_coord_number = len(np.unique(data_x_all))
+        print(f"Num coor number {num_coord_number}")
 
         # # down sample
         # if len(data_y_all) > 100:
