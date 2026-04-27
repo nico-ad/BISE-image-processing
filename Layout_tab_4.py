@@ -946,29 +946,29 @@ class ImageViewer(QWidget):
                 label=f"Run {i}" if "run" in data_dict else f"Label {data_dict['label'][i][0]}",
             )
 
-            if data_dict['label'][i][0] == 13:
-                self.ax.plot(
-                    data_x * data_dict["x_unit"],
-                    [0.440] * len(data_x),
-                    color="royalblue",
-                )
-                self.ax.plot(
-                    data_x * data_dict["x_unit"],
-                    [0.880] * len(data_x),
-                    color="royalblue",
-                )
+            # if data_dict['label'][i][0] == 13:
+            #     self.ax.plot(
+            #         data_x * data_dict["x_unit"],
+            #         [0.440] * len(data_x),
+            #         color="royalblue",
+            #     )
+            #     self.ax.plot(
+            #         data_x * data_dict["x_unit"],
+            #         [0.880] * len(data_x),
+            #         color="royalblue",
+            #     )
 
-            if data_dict['label'][i][0] == 23:
-                self.ax.plot(
-                    data_x * data_dict["x_unit"],
-                    [0.368] * len(data_x),
-                    color="darkorange",
-                )
-                self.ax.plot(
-                    data_x * data_dict["x_unit"],
-                    [0.796] * len(data_x),
-                    color="darkorange",
-                )
+            # if data_dict['label'][i][0] == 23:
+            #     self.ax.plot(
+            #         data_x * data_dict["x_unit"],
+            #         [0.368] * len(data_x),
+            #         color="darkorange",
+            #     )
+            #     self.ax.plot(
+            #         data_x * data_dict["x_unit"],
+            #         [0.796] * len(data_x),
+            #         color="darkorange",
+            #     )
 
             if "fit" in data_dict:
                 fit = data_dict["fit"][i]
@@ -1032,7 +1032,7 @@ class ImageViewer(QWidget):
         """ Plot axis """
         
         # x_axis_log
-        if data_dict["x_log"]:
+        if "x_log" in data_dict:
             self.ax.set_xscale("symlog")
 
         # ticks and labels

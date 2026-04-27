@@ -2733,22 +2733,22 @@ class VisualizationFunctions():
             }[y_unit]
 
             unit_label_y = {
-                "fraction": f"$K_{{MeS}}$",
+                "fraction": f"$K_{{res}}$",
             }[y_unit]
             
-            # ----- velocity
-            if velocity is not None:
-                mask = (
-                    velocity["frame"].isin(selected_frames)
-                )
-                velocity = velocity.loc[
-                    mask,
-                    ["frame", "velocity"]
-                ].copy()
-                velocity["friction"] = 0.0564 * velocity["velocity"] ** (7/8)
+            # # ----- velocity
+            # if velocity is not None:
+            #     mask = (
+            #         velocity["frame"].isin(selected_frames)
+            #     )
+            #     velocity = velocity.loc[
+            #         mask,
+            #         ["frame", "velocity"]
+            #     ].copy()
+            #     velocity["friction"] = 0.0564 * velocity["velocity"] ** (7/8)
                 
-                if velocity.empty:
-                    continue
+            #     if velocity.empty:
+            #         continue
             
             # ----- group data
             grouped = sub_df.groupby("frame")
@@ -3257,15 +3257,6 @@ class VisualizationFunctions():
         if velocity is None:
             velocity = [None] * len(dataframe)
         
-        # if x_unit not in ["frames", "time", "velocity", "Reynolds_duct", "Reynolds_friction"]:
-        #     msg = f"'units' is not frame, time, velocity or Reynolds_duct or Reynolds_friction not {unit}"
-        #     raise ValueError(msg)
-        
-        if len(dataframe) > 10:
-            colors = cm.get_cmap("tab20")
-        else:
-            colors = cm.get_cmap("tab10")
-        
         results= []
         
         for run, data in enumerate(dataframe):
@@ -3280,10 +3271,17 @@ class VisualizationFunctions():
             else:
                 msg = "'frames' must be int, list or np.ndarray of int"
                 raise TypeError(msg)
+
+            # ----- labels
+            if labels == "all" or labels is None:
+                selected_labels = sorted(data["label"].unique())
+            else:
+                selected_labels = labels
             
-            # ------ dataframe
+            # ------ filtering
             mask = (
-                data["frame"].isin(frames)
+                data["frame"].isin(selected_frames) &
+                data["label"].isin(selected_labels)
             )
             
             sub_df = data.loc[
@@ -3294,42 +3292,59 @@ class VisualizationFunctions():
             if sub_df.empty:
                 continue
             
+            # ----- select unit factor
             unit_factor_x = {
                 "frames": 1,
                 "time": time_interval,
+                "f_velocity": 1.0,  # friction velocity
+                "m_velocity"        # middle duct velocity
+                "reynolds": 1.0,
+            }[x_unit]
+
+            unit_label_x = {
+                "frames": "Frames",
+                "time": f"Time $[s]$",
+                "f_velocity": f"Friction velocity $[m/s]$",      # friction velocity
+                "m_velocity": f"Middle duct velocity $[m/s]$",   # middle duct velocity
+                "reynolds": "Reynolds number",
             }[x_unit]
             
             unit_factor_y = {
                 "fraction": 1,
             }[y_unit]
+
+            unit_label_y = {
+                "fraction": f"$K_{{rem}}$",
+            }[y_unit]
             
             # # ----- velocity
-            # mask = (
-            #     data["frame"].isin(frames)
-            # )
-            
-            # sub_df = data.loc[
-            #     mask,
-            #     ["frame", "timestamp", "voltage", "velocity"]
-            # ].copy()
-            
-            if sub_df.empty:
-                continue
+            # if velocity is not None:
+            #     mask = (
+            #         velocity["frame"].isin(selected_frames)
+            #     )
+            #     velocity = velocity.loc[
+            #         mask,
+            #         ["frame", "velocity"]
+            #     ].copy()
+            #     velocity["friction"] = 0.0564 * velocity["velocity"] ** (7/8)
+                
+            #     if velocity.empty:
+            #         continue
             
             # ----- group data
             grouped = sub_df.groupby("frame")
             initial_num_parts = len(sub_df[sub_df["frame"]==min(sub_df["frame"].unique())])
             
+            # ----- fill data_dict
             data_dict = {
                 "curves": True,
-                "x": sub_df["frame"].unique(),
-                "y": [((len(group) / initial_num_parts)) for _, group in grouped],
+                "x": [sub_df["frame"].unique()],
+                "y": [[(len(group) / initial_num_parts) for _, group in grouped]],
                 "run": [run],
                 "x_unit": unit_factor_x,
                 "y_unit": unit_factor_y,
-                "x_log": False,
-                "x_label": f"X [{x_unit}]",
-                "y_label": f"Y [{y_unit}]",
+                "x_label": unit_label_x,
+                "y_label": unit_label_y,
             }
             results.append(data_dict)
             
