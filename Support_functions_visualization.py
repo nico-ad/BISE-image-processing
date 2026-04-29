@@ -2647,6 +2647,139 @@ class VisualizationFunctions():
             plt.savefig(str(name), dpi=120)
         else:
             plt.show()
+    
+    def Smooth_trajectories(
+        self,
+        dataframe: pd.DataFrame = None,
+        pixel_size: float = None,
+        time_interval: float = 1/8000,
+        frames: list|np.ndarray = None,
+        labels: list|np.ndarray = None,
+        path_save: str = None,
+        do_save: bool = False,
+        x_unit: str = "time",
+        y_unit: str = "fraction",
+    ):
+        
+        def kalman_track_2d(
+                positions, dt=1.0,
+                process_noise=1e-3,
+                measurement_noise=2.0,
+                static_threshold=0.1,
+                freeze_static=True
+                ):
+            positions = np.array(positions)
+            n = len(positions)
+
+            # Etat : [x, y, vx, vy]
+            x = np.zeros((4, 1))
+            x[:2] = positions[0].reshape(2, 1)
+
+            # Matrices
+            F = np.array([
+                [1, 0, dt, 0],
+                [0, 1, 0, dt],
+                [0, 0, 1, 0 ],
+                [0, 0, 0, 1 ]
+            ])
+
+            H = np.array([
+                [1, 0, 0, 0],
+                [0, 1, 0, 0]
+            ])
+
+            P = np.eye(4) * 500
+            Q = np.eye(4) * process_noise
+            R = np.eye(2) * measurement_noise
+            I = np.eye(4)
+
+            filtered = []
+
+            for z in positions:
+                z = z.reshape(2, 1)
+
+                # Predict
+                x = F @ x
+                P = F @ P @ F.T + Q
+
+                # Update
+                y = z - H @ x
+                S = H @ P @ H.T + R
+                K = P @ H.T @ np.linalg.inv(S)
+
+                x = x + K @ y
+                P = (I - K @ H) @ P
+
+                filtered.append(x[:2].flatten())
+
+            filtered = np.array(filtered)
+
+            # Détection particule statique
+            velocities = np.diff(filtered, axis=0)
+            speed = np.linalg.norm(velocities, axis=1)
+
+            mean_speed = np.mean(speed)
+
+            if freeze_static and mean_speed < static_threshold:
+                mean_pos = np.mean(filtered, axis=0)
+                filtered[:] = mean_pos  # fige complètement
+
+            return filtered
+        
+        for run, data in enumerate(dataframe):
+
+            # ----- frames
+            if frames is None:
+                selected_frames = data["frame"].unique()
+            elif isinstance(frames, int):
+                selected_frames = [frames]
+            elif isinstance(frames, (list, np.ndarray)):
+                selected_frames = frames
+            else:
+                msg = "'frames' must be int, list or np.ndarray of int"
+                raise TypeError(msg)
+
+            # ----- labels
+            if labels == "all" or labels is None:
+                selected_labels = sorted(data["label"].unique())
+            else:
+                selected_labels = labels
+            
+            # ------ filtering
+            mask = (
+                data["frame"].isin(selected_frames) &
+                data["label"].isin(selected_labels)
+            )
+            
+            sub_df = data.loc[
+                mask,
+                ["frame", "label", "x", "y", "vx", "vy",
+                 "main_path", "name"]
+            ].copy()
+            
+            if sub_df.empty:
+                continue
+            
+            _, ax = plt.subplots()
+
+            # ----- load image
+            name = Path(
+                data['main_path'].iloc[0],
+                data['name'].iloc[0]
+                )
+            img = self._load_image(name, invert=False)
+
+            for lbl, group in sub_df.groupby("label"):
+                
+                raw_traj = group[["x", "y", "vx", "vy"]]
+                filtered_traj = kalman_track_2d(raw_traj)
+
+                ax.imshow(img, cmap="gray")
+
+                ax.scatter(raw_traj["x"], raw_traj["y"], color="b")
+                ax.scatter(filtered_traj["x"], filtered_traj["y"], color="o")
+            
+            plt.show()
 
     def Visualize_resuspended_fraction(
         self,
@@ -2665,7 +2798,7 @@ class VisualizationFunctions():
         use_mean: bool = False,
         kernel_size: int = None,
         velocity: pd.DataFrame = None,
-    ):
+    ) -> list:
 
         if velocity is None:
             velocity = [None] * len(dataframe)
@@ -4402,8 +4535,8 @@ class VisualizationFunctions():
                 "vy": [group["vy"].to_numpy() for _, group in grouped_label],
                 "label": list(group["label"].unique() for _, group in grouped_label),
                 "unit": unit_factor,
-                "x_label": f"unit_label_x",
-                "y_label": f"unit_label_y",
+                "x_label": unit_label_x,
+                "y_label": unit_label_y,
             }
             results.append(data_dict)
             
@@ -5470,9 +5603,10 @@ class VisualizationFunctions():
         pixel_size : float = 1.0,
         frames: list|int = None,
         labels: list|int = None,
+        x_unit: str = None,
+        y_unit: str = None,
         path_save: str = None,
         do_save: bool = False,
-        unit: str = "px",
         rotate: int = 0,
         crop: tuple = (1, 1),
     ):
@@ -5525,13 +5659,13 @@ class VisualizationFunctions():
                 "px": 1,
                 "mm": pixel_size,
                 "m": pixel_size / 1000
-            }[unit]
+            }[x_unit]
             
             unit_label = {
                 "px": "px",
                 "mm": "mm",
                 "m": "m",
-            }[unit]
+            }[x_unit]
             
             sub_df["x"] *= unit_factor
             sub_df["y"] *= unit_factor

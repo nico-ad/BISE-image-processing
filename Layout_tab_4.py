@@ -16,6 +16,8 @@ from PyQt5.QtWidgets import (
     QListWidget,
     QSplitter,
     QSizePolicy,
+    QDialog,
+    QHeaderView,
 )
 from PyQt5.QtWidgets import (
     QStyledItemDelegate,
@@ -62,29 +64,102 @@ class HelperTab4(QWidget):
         self.fitting_func = func_preview.FitFunction()
         
         self.function_map = {
-            "Histogram diameters": self.visualization_func.Visualize_histogram_diameters,
-            "Number of particles": self.visualization_func.Visualize_num_part_per_frames,
-            "Number of labels": self.visualization_func.Visualize_num_labels,
-            "Mean diameter": self.visualization_func.Visualize_mean_diameter,
-            "Mean inter-particle distance": self.visualization_func.Visualize_mean_inter_particle_distance,
-            "Mean free path": self.visualization_func.Visualize_mean_free_path,
-            "Coordination number": self.visualization_func.Visualize_coordination_number,
-            "Surface concentration": self.visualization_func.Visualize_surface_concentration,
-            "Resuspended fraction": self.visualization_func.Visualize_resuspended_fraction,
-            "Collision frequency": self.visualization_func.Visualize_collision_frequency,
-            "Remaining fraction": self.visualization_func.Visualize_remaining_fraction,
-            "Velocity flow": self.visualization_func.Visualize_velocity_flow,
-            "Velocity": self.visualization_func.Visualize_velocity,
-            "Acceleration": self.visualization_func.Visualize_acceleration,
-            "Momentum": self.visualization_func.Visualize_momentum,
-            "Kinetic energy": self.visualization_func.Visualize_kinetic_energy,
-            "Mean square displacement": self.visualization_func.Mean_square_displacement,
-            "Particles dectection": self.visualization_func.Visualize_particle_detection,
-            "Clusters": self.visualization_func.Visualize_cluster,
-            "Position tracking particles": self.visualization_func.Track_particles_position,
-            "Velocity tracking particles": self.visualization_func.Track_particles_velocity,
-            "Visualize labels": self.visualization_func.Visualize_labels,
-            "Voronoi triangulation": self.visualization_func.Visualize_Voronoi_triangulation,
+            "Histogram diameters": {
+                "func": self.visualization_func.Visualize_histogram_diameters,
+                "settings": HistogramSettings(),
+                },
+            "Number of particles": {
+                "func": self.visualization_func.Visualize_num_part_per_frames,
+                "settings": NumberParticlesSettings(),
+                },
+            "Number of labels": {
+                "func": self.visualization_func.Visualize_num_labels,
+                "settings": NumberLabelsSettings(),
+                },
+            "Mean diameter": {
+                "func": self.visualization_func.Visualize_mean_diameter,
+                "settings": MeanDiameterSettings(),
+                },
+            "Mean inter-particle distance": {
+                "func": self.visualization_func.Visualize_mean_inter_particle_distance,
+                "settings": InterParticleDistanceSettings(),
+                },
+            "Mean free path": {
+                "func": self.visualization_func.Visualize_mean_free_path,
+                "settings": MeanFreePathParticleSettings(),
+                },
+            "Coordination number": {
+                "func": self.visualization_func.Visualize_coordination_number,
+                "settings": CoordinationNumberSettings(),
+                },
+            "Surface concentration": {
+                "func": self.visualization_func.Visualize_surface_concentration,
+                "settings": SurfaceConcentrationSettings(),
+                },
+            "Resuspended fraction": {
+                "func": self.visualization_func.Visualize_resuspended_fraction,
+                "settings": ResuspendedFractionSettings(),
+                },
+            "Collision frequency": {
+                "func": self.visualization_func.Visualize_collision_frequency,
+                "settings": CollisionFrequencySettings(),
+                },
+            "Remaining fraction": {
+                "func": self.visualization_func.Visualize_remaining_fraction,
+                "settings": RemainingFractionSettings(),
+                },
+            "Velocity flow": {
+                "func": self.visualization_func.Visualize_velocity_flow,
+                "settings": VelocityFlowSettings(),
+                },
+            "Velocity": {
+                "func": self.visualization_func.Visualize_velocity,
+                "settings": ParticlesVelocitySettings(),
+                },
+            "Acceleration": {
+                "func": self.visualization_func.Visualize_acceleration,
+                "settings": ParticleAccelerationSettings(),
+                },
+            "Momentum": {
+                "func": self.visualization_func.Visualize_momentum,
+                "settings": ParticleMomentumSettings(),
+                },
+            "Kinetic energy": {
+                "func": self.visualization_func.Visualize_kinetic_energy,
+                "settings": ParticleKineticEnergySettings(),
+                },
+            "Mean square displacement": {
+                "func": self.visualization_func.Mean_square_displacement,
+                "settings": ParticleMeanSquareDisplacementSettings(),
+                },
+            "Particles dectection": {
+                "func": self.visualization_func.Visualize_particle_detection,
+                "settings": ParticleDetectionSettings(),
+                },
+            "Clusters": {
+                "func": self.visualization_func.Visualize_cluster,
+                "settings": ParticleClusterSettings(),
+                },
+            "Position tracking particles": {
+                "func": self.visualization_func.Track_particles_position,
+                "settings": ParticleTrackingPositionSettings(),
+                },
+            "Velocity tracking particles": {
+                "func": self.visualization_func.Track_particles_velocity,
+                "settings": ParticleTrackingVelocitySettings(),
+                },
+            "Visualize labels": {
+                "func": self.visualization_func.Visualize_labels,
+                "settings": ParticleLabelsSettings(),
+                },
+            "Voronoi diagram": {
+                "func": self.visualization_func.Visualize_Voronoi_triangulation,
+                "settings": VoronoiDiagramSettings(),
+                },
+            "Smooth trajectories": {
+                "func": self.visualization_func.Smooth_trajectories,
+                "settings": ParticleSmoothTrajectoriesSettings(),
+                },
         }
         
         tab_4 = QWidget()
@@ -149,7 +224,7 @@ class HelperTab4(QWidget):
         
         categories = {
             "1D display": [
-                "Histogram diameters", "Number of particles", "Number of labels",
+                "Smooth trajectories", "Histogram diameters", "Number of particles", "Number of labels",
                 "Mean inter-particle distance", "Mean free path", "Coordination number",
                 "Collision frequency", "Resuspended fraction", "Remaining fraction",
                 "Velocity flow", "Surface concentration", "Mean diameter",
@@ -158,7 +233,7 @@ class HelperTab4(QWidget):
                 ],
             "2D display": [
 
-                "Particles detection", "Voronoi triangulation", "Labels",
+                "Particles detection", "Voronoi diagram", "Labels",
                 "Number of labels per frame", "Clusters", "Position tracking particles",
                 "Velocity tracking particles",
                 ],
@@ -209,6 +284,16 @@ class HelperTab4(QWidget):
         
         labels_layout.addStretch()
         left_layout.addLayout(labels_layout)
+
+        # ----- Options
+        self.option_btn = QPushButton(tab_4)
+        self.option_btn.setText("Options")
+        self.option_btn.setFont(self.parent.font_button)
+        self.option_btn.setFixedHeight(50)
+        self.option_btn.setFixedWidth(150)
+        self.option_btn.setEnabled(True)
+        self.option_btn.clicked.connect(self._open_options)
+        left_layout.addWidget(self.option_btn)
         
         left_layout.addStretch()
         # ==========
@@ -219,7 +304,10 @@ class HelperTab4(QWidget):
         self.plot_container = QWidget()
         self.plot_layout = QVBoxLayout(self.plot_container)
         
-        self.viewer = ImageViewer(self.plot_container, pixel_size=1.0)
+        self.viewer = ImageViewer(
+            container_widget=self.plot_container,
+            pixel_size=1.0,
+            )
         
         # ----- INCLUDE TO SPLITTER
         
@@ -331,6 +419,24 @@ class HelperTab4(QWidget):
         
         return dataframe
     
+    def _open_options(self):
+        """ Open option window """
+
+        dialog = OptionDialog(self, settings=self.settings)
+        dialog.settings_applied.connect(
+            lambda settings: self.viewer._display(
+                self.func(
+                    dataframe=self.data_to_plot["dataframe"],
+                    pixel_size=self.data_to_plot["pixel_size"],
+                    frames=self.data_to_plot["frames"],
+                    labels=self.data_to_plot["labels"],
+                    x_unit=self.settings.x_axis,
+                    y_unit=self.settings.y_axis,
+                    )
+                )
+            )
+        dialog.exec_()
+    
     def _execute_function(self, item):
         """ Launch function for visualization """
         
@@ -377,18 +483,35 @@ class HelperTab4(QWidget):
             #     # on_error=self.on_handle_error,
             # )
             # runner._start()
+
+            self.option_btn.setEnabled(False)
+
+            self.data_to_plot = {
+                "dataframe": dataframe,
+                "pixel_size": 0.006,
+                "frames": frames,
+                "labels": labels,
+            }
             
-            func = self.function_map[name]
-            print(func.__name__)
-            if func:
-                data_list = func(
-                    dataframe=dataframe,
-                    pixel_size=0.006,
-                    frames=frames,
-                    labels=labels,
+            # function informations
+            self.func = self.function_map[name]["func"]
+            self.settings = self.function_map[name]["settings"]
+
+            print(self.func.__name__)
+
+            if self.func:
+                data_list = self.func(
+                    dataframe=self.data_to_plot["dataframe"],
+                    pixel_size=self.data_to_plot["pixel_size"],
+                    frames=self.data_to_plot["frames"],
+                    labels=self.data_to_plot["labels"],
+                    x_unit=self.settings.x_axis,
+                    y_unit=self.settings.y_axis,
                     )
         
         self.viewer._display(data_list)
+
+        self.option_btn.setEnabled(True)
     
     def _parse_labels(self, text):
         """ Parse labels textbox """
@@ -1259,3 +1382,686 @@ class ThreadRunner:
             self.thread.stop()
             self.thread.quit()
             self.thread.wait()
+
+class OptionDialog(QDialog):
+        
+    # declare signal
+    settings_applied = pyqtSignal(object)
+
+    def __init__(self, parent=None, settings=None):
+        super().__init__(parent)
+
+        # plot settings
+        self.settings = settings
+
+        # ----- Dialog window size
+        self.setWindowTitle("Graph options")
+        self.resize(400, 300)
+
+        main_layout = QVBoxLayout(self)
+
+        # ----- tabs
+        self.tabs = QTabWidget()
+        main_layout.addWidget(self.tabs)
+
+        # =========================
+        # TAB 1 : Velocity files
+        # =========================
+        tab1 = QWidget()
+        tab1_layout = QVBoxLayout(tab1)
+
+        # velocity storage
+        self.velocity_files = []
+
+        # table
+        self.table = QTableWidget()
+        self.table.setColumnCount(1)
+        self.table.setHorizontalHeaderLabels(["Velocity files"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        tab1_layout.addWidget(self.table)
+
+        # load velocity button
+        self.load_velocity_btn = QPushButton("Add velocity profile")
+        # self.load_velocity_btn.setFont(self.parent.font_button)
+        self.load_velocity_btn.setFixedSize(150, 50)
+        self.load_velocity_btn.clicked.connect(self._add_velocity)
+        tab1_layout.addWidget(self.load_velocity_btn)
+        tab1_layout.addWidget(self.load_velocity_btn, alignment=Qt.AlignCenter)
+        
+        # load velocity button
+        self.remove_velocity_btn = QPushButton("Remove velocity profile")
+        # self.load_velocity_btn.setFont(self.parent.font_button)
+        self.remove_velocity_btn.setFixedSize(150, 50)
+        self.remove_velocity_btn.clicked.connect(self._remove_velocity)
+        tab1_layout.addWidget(self.remove_velocity_btn)
+        tab1_layout.addWidget(self.remove_velocity_btn, alignment=Qt.AlignCenter)
+
+        # =========================
+        # TAB 1 : Figure options
+        # =========================
+        tab2 = QWidget()
+        tab2_layout = QVBoxLayout(tab2)
+
+        # ----- X axis
+        tab2_layout.addWidget(QLabel("X axis"))
+        self.x_combo = QComboBox()
+        # add item on combo box
+        for label, value in self.settings.x_axis_options.items():
+            self.x_combo.addItem(label, value)
+        # set current data
+        idx = self.x_combo.findData(self.settings.x_axis)
+        self.x_combo.setCurrentIndex(idx)
+        tab2_layout.addWidget(self.x_combo)
+
+        # ----- Y axis
+        tab2_layout.addWidget(QLabel("Y axis"))
+        self.y_combo = QComboBox()
+        # add item on combo box
+        for label, value in self.settings.y_axis_options.items():
+            self.y_combo.addItem(label, value)
+        # set current data
+        idx = self.y_combo.findData(self.settings.y_axis)
+        self.y_combo.setCurrentIndex(idx)
+        tab2_layout.addWidget(self.y_combo)
+
+        self.x_combo.currentTextChanged.connect(self._update_x)
+        self.y_combo.currentTextChanged.connect(self._update_y)
+
+        # ----- Add tabs
+        self.tabs.addTab(tab1, "Velocity file")
+        self.tabs.addTab(tab2, "Figure")
+        
+        # Apply button
+        layout = QVBoxLayout()
+        self.apply_btn = QPushButton("Apply")
+        # self.apply_btn.setFont(self.parent.font_button)
+        self.apply_btn.setFixedSize(75, 25)
+        self.apply_btn.clicked.connect(self._apply_settings)
+        tab2_layout.addWidget(self.apply_btn)
+        tab2_layout.addWidget(self.apply_btn, alignment=Qt.AlignRight)
+
+        self.setLayout(main_layout)
+
+    def _add_velocity(self):
+        """" Add one or multiple velocity profiles """
+        
+        # select files with dialog box
+        file_dialog = QFileDialog(self)
+        file_dialog.setFileMode(QFileDialog.ExistingFiles)
+        file_dialog.setNameFilter("CSV files (*.csv)")
+        file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)
+        
+        if file_dialog.exec_():
+            
+            for selected_files in file_dialog.selectedFiles():
+                
+                velocity_path = Path(selected_files)
+                
+                # check if file already loaded
+                if velocity_path in self.velocity_files:
+                    continue
+                
+                # add in table
+                row = self.table.rowCount()
+                self.table.insertRow(row)
+                
+                item = QTableWidgetItem()
+                
+                # truncate path display
+                velocity_path_str = str(velocity_path)
+                if len(velocity_path_str) > 30:
+                    display_text = f"{velocity_path_str[:30]}...{velocity_path_str[-30:]}"
+                else:
+                    display_text = velocity_path_str
+                    
+                # create item to store path folder
+                item.setText(display_text)
+                #store path
+                item.setData(Qt.UserRole, velocity_path)
+                self.table.setItem(row, 0, item)
+
+                self.velocity_files.append(velocity_path)
+        
+            self.table.viewport().update()
+    
+    def _remove_velocity(self):
+        """ Remove selected velocity profile """
+
+        selected_row = self.table.selectionModel().selectedRows()
+
+        if not selected_row:
+            return
+        
+        for index in sorted(selected_row, reverse=True, key=lambda x: x.row()):
+            row = index.row()
+
+            item = self.table.item(row, 0)
+            if item is not None:
+                velocity_path = item.data(Qt.UserRole)
+
+                if velocity_path in self.velocity_files:
+                    self.velocity_files.remove(velocity_path)
+            
+            self.table.removeRow(row)
+    
+    def _apply_settings(self):
+        """ Validate figure modifications """
+
+        # pick up values from UI
+        self.settings.x_axis = self.x_combo.currentData()
+        self.settings.y_axis = self.y_combo.currentData()
+
+        # redraw figure
+        print("APPLY SETTINGS")
+        self.settings_applied.emit(self.settings)
+        # self._update_plot()
+    
+    # def _update_plot(self):
+    #     """ Redraw figure with new settings """
+
+    #     if not self.func:
+    #         return
+        
+    #     results = self.func(
+    #         dataframe=self.data_to_plot["dataframe"],
+    #         pixel_size=self.data_to_plot["pixel_size"],
+    #         frames=self.data_to_plot["frames"],
+    #         labels=self.data_to_plot["labels"],
+    #         x_unit=self.settings.x_axis,
+    #         y_unit=self.settings.y_axis,
+    #     )
+        
+    #     self.viewer = ImageViewer(self, pixel_size=self.data_to_plot["pixel_size"])
+
+    #     self.viewer._display(results)
+
+
+    def _update_x(self):
+        """ Update unit in x axis """
+        self.settings.x_axis = self.x_combo.currentData()
+    
+    def _update_y(self):
+        """ Update unit in y axis """
+        self.settings.y_axis = self.y_combo.currentData()
+
+class HistogramSettings():
+    """ Store configuration for particles histogram """
+
+    def __init__(self):
+
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        
+        # Y axis
+        self.y_axis_options = {
+            "px/s",
+            "mm/s",
+            "m/s",
+            }
+        
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "mm/s"
+
+class NumberParticlesSettings():
+    """ Store configuration for particles counting """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "number",
+            }
+        # default selection
+        self.x_axis = "number"
+        self.y_axis = "time"
+
+class NumberLabelsSettings():
+    """ Store configuration for particles counting labels """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "number",
+            }
+        # default selection
+        self.x_axis = "number"
+        self.y_axis = "time"
+
+class MeanDiameterSettings():
+    """ Store configuration for particles mean diameter """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "number",
+            "normalize",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "number"
+
+class InterParticleDistanceSettings():
+    """ Store configuration for particles inter distance """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "number",
+            "frequency",
+            }
+        # default selection
+        self.x_axis = "mm"
+        self.y_axis = "number"
+
+class MeanFreePathParticleSettings():
+    """ Store configuration for particles mean free path """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "number",
+            "frequency",
+            }
+        # default selection
+        self.x_axis = "mm"
+        self.y_axis = "number"
+
+class CoordinationNumberSettings():
+    """ Store configuration for particles mean free path """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "coord_num",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "count",
+            "frequency",
+            }
+        # Z axis
+        self.y_axis_options = {
+            "frames",
+            "time_s",
+            "time_ms",
+            }
+        # default selection
+        self.x_axis = "coord_num"
+        self.y_axis = "frequency"
+        self.z_axis = "time_s"
+
+class SurfaceConcentrationSettings():
+    """ Store configuration for particles surface concentration """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "particle/px2",
+            "particle/mm2",
+            "particle/m2",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "particle/mm2"
+
+class ResuspendedFractionSettings():
+    """ Store configuration for particles resuspended fraction """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "fraction",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "fraction"
+
+class CollisionFrequencySettings():
+    """ Store configuration for particles collision frequency """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "/s",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "/s"
+
+class RemainingFractionSettings():
+    """ Store configuration for particles remaining fraction """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "fraction",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "fraction"
+
+class VelocityFlowSettings():
+    """ Store configuration for flow velocity """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px/s",
+            "mm/s",
+            "m/s",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "m/s"
+        
+class ParticlesVelocitySettings():
+    """ Store configuration for particles velocity """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames": "frames",
+            "time": "time",
+            "fric_velocity": "fric_velocity",
+            "flow_velocity": "flow_velocity",
+            "reynolds": "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px/s": "px/s",
+            "mm/s": "mm/s",
+            "m/s": "m/s",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "mm/s"
+
+class ParticleAccelerationSettings():
+    """ Store configuration for particle acceleration """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px/s2",
+            "mm/s2",
+            "m/s2",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "mm/s2"
+
+class ParticleMomentumSettings():
+    """ Store configuration for particle momentum """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "kg.mm/s",
+            "kg.m/s",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "kg.mm/s"
+
+class ParticleKineticEnergySettings():
+    """ Store configuration for particle kinetic energy """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "uJ",
+            "nJ",
+            "pJ",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "pJ"
+
+class ParticleMeanSquareDisplacementSettings():
+    """ Store configuration for particle mean square displacement """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "mm"
+
+class ParticleDetectionSettings():
+    """ Store configuration for particle detection """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px/s",
+            "mm/s",
+            "m/s",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "mm/s"
+
+class ParticleClusterSettings():
+    """ Store configuration for particle clustering """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px/s",
+            "mm/s",
+            "m/s",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "mm/s"
+
+class ParticleTrackingPositionSettings():
+    """ Store configuration for particle tracking position """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # default selection
+        self.x_axis = "mm"
+        self.y_axis = "mm"
+
+class ParticleTrackingVelocitySettings():
+    """ Store configuration for particle tracking velocity """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # default selection
+        self.x_axis = "mm"
+        self.y_axis = "mm"
+
+class ParticleLabelsSettings():
+    """ Store configuration for particle labels """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px/s",
+            "mm/s",
+            "m/s",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "mm/s"
+
+class VoronoiDiagramSettings():
+    """ Store configuration for Voronoi diagram """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px",
+            "mm",
+            "m",
+            }
+        # default selection
+        self.x_axis = "mm"
+        self.y_axis = "mm"
+
+class ParticleSmoothTrajectoriesSettings():
+    """ Store configuration for particle smooth trajecotries """
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+            }
+        # Y axis
+        self.y_axis_options = {
+            "px/s",
+            "mm/s",
+            "m/s",
+            }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "mm/s"
