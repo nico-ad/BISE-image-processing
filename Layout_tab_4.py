@@ -1126,7 +1126,6 @@ class ImageViewer(QWidget):
                 label=f"Label {lbl}",
                 )
             
-            
             cursor = mplcursors.cursor(scatter, hover=True)
             
             @cursor.connect("add")
@@ -1197,13 +1196,13 @@ class ImageViewer(QWidget):
 
             x_ticks = self.ax.get_xticks()[1:]
             self.ax.set_xticks(x_ticks)
-            self.ax.set_xticklabels([f"{x_tick:.3f}" for x_tick in x_ticks], fontsize=self.dict_fontsize["ticks"])
+            self.ax.set_xticklabels(self._number_of_ticks(x_ticks, data_dict["min_decimals_x"]), fontsize=self.dict_fontsize["ticks"])
             self.ax.set_xlabel(data_dict["x_label"], fontsize=self.dict_fontsize["label"])
             print(x_ticks)
             
             y_ticks = self.ax.get_yticks()[1:]
             self.ax.set_yticks(y_ticks)
-            self.ax.set_yticklabels([f"{y_tick:.2f}" for y_tick in y_ticks], fontsize=self.dict_fontsize["ticks"])
+            self.ax.set_yticklabels(self._number_of_ticks(y_ticks, data_dict["min_decimals_y"]), fontsize=self.dict_fontsize["ticks"])
             self.ax.set_ylabel(data_dict["y_label"], fontsize=self.dict_fontsize["label"])
             print(y_ticks)
 
@@ -1211,6 +1210,20 @@ class ImageViewer(QWidget):
         _, labels_legend = self.ax.get_legend_handles_labels()
         if labels_legend:
             self.ax.legend(fontsize=self.dict_fontsize["legend"])
+    
+    def _number_of_ticks(self, ticks, min_decimal=0):
+        """ Adapt number of ticks """
+        
+        inc = min_decimal
+        temp_ticks = [f"{tick:.{int(inc)}f}" for tick in ticks]
+        
+        unique = np.unique(temp_ticks)
+        while (len(unique) != len(ticks)):
+            inc += 1
+            temp_ticks = [f"{tick:.{int(inc)}f}" for tick in ticks]
+            unique = np.unique(temp_ticks)
+        
+        return temp_ticks
 
 class SupportFunctions:
     def __init__(self):

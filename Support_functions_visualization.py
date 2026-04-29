@@ -2153,7 +2153,9 @@ class VisualizationFunctions():
         unit: str = "px",
         rotate: int = None,
         do_density_map: bool = False,
-        ) -> pd.DataFrame:
+        x_unit: str = None,
+        y_unit: str = None,
+        ) -> list:
             
             results = []
             
@@ -2195,16 +2197,16 @@ class VisualizationFunctions():
                     "px": 1,
                     "mm": pixel_size,
                     "m": pixel_size / 1000
-                }[unit]
+                }[x_unit]
                 
                 unit_label = {
                     "px": "px",
                     "mm": "mm",
                     "m": "m",
-                }[unit]
+                }[y_unit]
                 
-                sub_df["x"] *= unit_factor
-                sub_df["y"] *= unit_factor
+                # sub_df["x"] *= unit_factor
+                # sub_df["y"] *= unit_factor
                 
                 # ----- load image
                 name = Path(
@@ -4880,6 +4882,17 @@ class VisualizationFunctions():
                 "m/s": "Velocity $[m/s]$",
             }[y_unit]
 
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+            }[x_unit]
+
+            min_decimals_y = {
+                "px/s": 0,
+                "mm/s": 0,
+                "m/s": 2,
+            }[y_unit]
+
             print(sub_df["diameter_mean"].unique())
             
             df = sub_df.sort_values(by=["label", "frame"])
@@ -4919,6 +4932,8 @@ class VisualizationFunctions():
                 "y_unit": unit_factor_y,
                 "x_label": unit_label_x,
                 "y_label": unit_label_y,
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
             }
 
             import pyarrow as pa
@@ -5036,6 +5051,17 @@ class VisualizationFunctions():
                 "mm/s2": "Acceleration $[mm/s]$",
                 "m/s2": "Acceleration $[m/s]$",
             }[y_unit]
+
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+            }[x_unit]
+
+            min_decimals_y = {
+                "px/s2": 0,
+                "mm/s2": 0,
+                "m/s2": 2,
+            }[y_unit]
             
             df = sub_df.sort_values(by=["label", "frame"])
             dt = sub_df["dt"].unique()
@@ -5073,6 +5099,8 @@ class VisualizationFunctions():
                 "y_unit": unit_factor_y,
                 "x_label": unit_label_x,
                 "y_label": unit_label_y,
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
             }
 
             result.append(data_dict)
@@ -5175,6 +5203,17 @@ class VisualizationFunctions():
                 "kg.mm/s": "Momentum $[mN \, s]$",
                 "kg.m/s": "Momentum $[N \, s]$",
             }[y_unit]
+
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+            }[x_unit]
+
+            min_decimals_y = {
+                "kg.px/s": 0,
+                "kg.mm/s": 0,
+                "kg.m/s": 2,
+            }[y_unit]
             
             df = sub_df.sort_values(by=["label", "frame"])
             dt = sub_df["dt"].unique()
@@ -5210,6 +5249,8 @@ class VisualizationFunctions():
                 "y_unit": unit_factor_y,
                 "x_label": unit_label_x,
                 "y_label": unit_label_y,
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
             }
 
             result.append(data_dict)
@@ -5317,6 +5358,17 @@ class VisualizationFunctions():
                 "nJ": "Kinetic $[nJ]$",
                 "pJ": "Kinetic $[pJ]$",
             }[y_unit]
+
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+            }[x_unit]
+
+            min_decimals_y = {
+                "uJ": 0,
+                "nJ": 0,
+                "pJ": 2,
+            }[y_unit]
             
             df = sub_df.sort_values(by=["label", "frame"])
             dt = sub_df["dt"].unique()
@@ -5350,6 +5402,8 @@ class VisualizationFunctions():
                 "y_unit": unit_factor_y,
                 "x_label": unit_label_x,
                 "y_label": unit_label_y,
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
             }
 
             result.append(data_dict)
