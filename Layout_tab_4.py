@@ -60,6 +60,8 @@ class HelperTab4(QWidget):
         if not hasattr(self.parent, "dataframe_cache"):
             self.parent.dataframe_cache = {}
         
+        self.velocity_profile = []
+        
         self.visualization_func = Visualization.VisualizationFunctions(parent=self)
         self.fitting_func = func_preview.FitFunction()
         
@@ -296,6 +298,7 @@ class HelperTab4(QWidget):
         left_layout.addWidget(self.option_btn)
         
         left_layout.addStretch()
+
         # ==========
         # RIGHT PANEL
         # ==========
@@ -306,7 +309,7 @@ class HelperTab4(QWidget):
         
         self.viewer = ImageViewer(
             container_widget=self.plot_container,
-            pixel_size=1.0,
+            pixel_size=0.006,
             )
         
         # ----- INCLUDE TO SPLITTER
@@ -423,8 +426,13 @@ class HelperTab4(QWidget):
         """ Open option window """
 
         dialog = OptionDialog(self, settings=self.settings)
-        dialog.settings_applied.connect(
-            lambda settings: self.viewer._display(
+    
+        def _handle_settings_applied(settings, velocity):
+
+            self.velocity_profile = velocity if velocity else None
+            
+            # lambda settings:
+            self.viewer._display(
                 self.func(
                     dataframe=self.data_to_plot["dataframe"],
                     pixel_size=self.data_to_plot["pixel_size"],
@@ -432,9 +440,11 @@ class HelperTab4(QWidget):
                     labels=self.data_to_plot["labels"],
                     x_unit=self.settings.x_axis,
                     y_unit=self.settings.y_axis,
-                    )
+                    velocity=self.velocity_profile,
                 )
             )
+
+        dialog.settings_applied.connect(_handle_settings_applied)
         dialog.exec_()
     
     def _execute_function(self, item):
@@ -1069,30 +1079,6 @@ class ImageViewer(QWidget):
                 label=f"Run {i}" if "run" in data_dict else f"Label {data_dict['label'][i][0]}",
             )
 
-            # if data_dict['label'][i][0] == 13:
-            #     self.ax.plot(
-            #         data_x * data_dict["x_unit"],
-            #         [0.440] * len(data_x),
-            #         color="royalblue",
-            #     )
-            #     self.ax.plot(
-            #         data_x * data_dict["x_unit"],
-            #         [0.880] * len(data_x),
-            #         color="royalblue",
-            #     )
-
-            # if data_dict['label'][i][0] == 23:
-            #     self.ax.plot(
-            #         data_x * data_dict["x_unit"],
-            #         [0.368] * len(data_x),
-            #         color="darkorange",
-            #     )
-            #     self.ax.plot(
-            #         data_x * data_dict["x_unit"],
-            #         [0.796] * len(data_x),
-            #         color="darkorange",
-            #     )
-
             if "fit" in data_dict:
                 fit = data_dict["fit"][i]
                 self.ax.plot(
@@ -1101,6 +1087,15 @@ class ImageViewer(QWidget):
                     color="tab:red",
                     label=f"Fit label {i}",
                 )
+            
+            if "vel_y" in data_dict:
+                if data_dict["vel_x"] is not None:
+                    self.ax.plot(
+                        data_dict["vel_x"],
+                        data_dict["vel_y"],
+                        color=colors(i), alpha=0.5,
+                        label=f"Fluid velocity at r_p({data_dict['label'][i][0]})",
+                    )
 
     def _plot_scatter(self, data_dict: dict):
         """ Plot scatter """
@@ -1176,13 +1171,13 @@ class ImageViewer(QWidget):
             self.ax.set_xticks(x_ticks)
             self.ax.set_xticklabels([f"{x_tick:.0f}" for x_tick in x_ticks], fontsize=self.dict_fontsize["ticks"])
             self.ax.set_xlabel(data_dict["x_label"], fontsize=self.dict_fontsize["label"])
-            print(x_ticks)
+            # print(x_ticks)
             
             y_ticks = self.ax.get_yticks()[1:-1]
             self.ax.set_yticks(y_ticks)
             self.ax.set_yticklabels([f"{y_tick:.2f}" for y_tick in y_ticks], fontsize=self.dict_fontsize["ticks"])
             self.ax.set_ylabel(data_dict["z_label"], fontsize=self.dict_fontsize["label"])
-            print(y_ticks)
+            # print(y_ticks)
 
             z_ticks = self.ax.get_zticks()
             if data_dict["nomalize"]:
@@ -1190,22 +1185,31 @@ class ImageViewer(QWidget):
             self.ax.set_zticks(z_ticks)
             self.ax.set_zticklabels([f"{z_tick:.2f}" for z_tick in z_ticks], fontsize=self.dict_fontsize["ticks"])
             self.ax.set_zlabel(data_dict["y_label"], fontsize=self.dict_fontsize["label"])
-            print(z_ticks)
+            # print(z_ticks)
         
         else:
 
             x_ticks = self.ax.get_xticks()[1:]
             self.ax.set_xticks(x_ticks)
-            self.ax.set_xticklabels(self._number_of_ticks(x_ticks, data_dict["min_decimals_x"]), fontsize=self.dict_fontsize["ticks"])
+            self.ax.set_xticklabels(
+                self._number_of_ticks(
+                    x_ticks, min_decimal=data_dict["min_decimals_x"]
+                    ),
+                fontsize=self.dict_fontsize["ticks"]
+                )
             self.ax.set_xlabel(data_dict["x_label"], fontsize=self.dict_fontsize["label"])
-            print(x_ticks)
+            # print(x_ticks)
             
             y_ticks = self.ax.get_yticks()[1:]
             self.ax.set_yticks(y_ticks)
-            self.ax.set_yticklabels(self._number_of_ticks(y_ticks, data_dict["min_decimals_y"]), fontsize=self.dict_fontsize["ticks"])
+            self.ax.set_yticklabels(
+                self._number_of_ticks(
+                    y_ticks, min_decimal=data_dict["min_decimals_y"]
+                    ),
+                fontsize=self.dict_fontsize["ticks"]
+                )
             self.ax.set_ylabel(data_dict["y_label"], fontsize=self.dict_fontsize["label"])
-            print(y_ticks)
-
+            # print(y_ticks)
         
         _, labels_legend = self.ax.get_legend_handles_labels()
         if labels_legend:
@@ -1301,7 +1305,6 @@ class SupportFunctions:
         return data
     
     def _load_dataframe(
-        self,
         path:str|Path,
         usecols:str|list=None,
         change_main_path_images:str=None,
@@ -1316,8 +1319,8 @@ class SupportFunctions:
             raise FileExistsError(msg)
         
         dataframe = pd.DataFrame(pd.read_csv(path, usecols=usecols))
-        if self.change_main_path_images:
-            dataframe["main_path"] = [self.change_main_path_images][0] * len(dataframe["main_path"])
+        if change_main_path_images:
+            dataframe["main_path"] = [change_main_path_images][0] * len(dataframe["main_path"])
         if "Unnamed: 0" in dataframe.columns:
             dataframe = dataframe.drop(["Unnamed: 0"], axis=1)
         
@@ -1399,7 +1402,7 @@ class ThreadRunner:
 class OptionDialog(QDialog):
         
     # declare signal
-    settings_applied = pyqtSignal(object)
+    settings_applied = pyqtSignal(object, object)
 
     def __init__(self, parent=None, settings=None):
         super().__init__(parent)
@@ -1511,6 +1514,14 @@ class OptionDialog(QDialog):
             for selected_files in file_dialog.selectedFiles():
                 
                 velocity_path = Path(selected_files)
+
+                # load velocity profile
+                data_velocity = SupportFunctions._load_dataframe(path=velocity_path)
+                # if not ["frame", "timestamp", "voltage", "velocity"] in data_velocity.columns:
+                #     print("Keyword is missong in veloctiy profile")
+
+                if not "friction" in data_velocity.columns:
+                    data_velocity["friction"] = 0.0564 * data_velocity["velocity"]**(7/8)
                 
                 # check if file already loaded
                 if velocity_path in self.velocity_files:
@@ -1535,9 +1546,11 @@ class OptionDialog(QDialog):
                 item.setData(Qt.UserRole, velocity_path)
                 self.table.setItem(row, 0, item)
 
-                self.velocity_files.append(velocity_path)
+                self.velocity_files.append(data_velocity)
         
             self.table.viewport().update()
+
+        self.settings_applied.emit(self.settings, self.velocity_files)
     
     def _remove_velocity(self):
         """ Remove selected velocity profile """
@@ -1567,29 +1580,7 @@ class OptionDialog(QDialog):
         self.settings.y_axis = self.y_combo.currentData()
 
         # redraw figure
-        print("APPLY SETTINGS")
-        self.settings_applied.emit(self.settings)
-        # self._update_plot()
-    
-    # def _update_plot(self):
-    #     """ Redraw figure with new settings """
-
-    #     if not self.func:
-    #         return
-        
-    #     results = self.func(
-    #         dataframe=self.data_to_plot["dataframe"],
-    #         pixel_size=self.data_to_plot["pixel_size"],
-    #         frames=self.data_to_plot["frames"],
-    #         labels=self.data_to_plot["labels"],
-    #         x_unit=self.settings.x_axis,
-    #         y_unit=self.settings.y_axis,
-    #     )
-        
-    #     self.viewer = ImageViewer(self, pixel_size=self.data_to_plot["pixel_size"])
-
-    #     self.viewer._display(results)
-
+        self.settings_applied.emit(self.settings, self.velocity_files)
 
     def _update_x(self):
         """ Update unit in x axis """

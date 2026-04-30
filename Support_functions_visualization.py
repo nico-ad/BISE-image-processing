@@ -159,7 +159,7 @@ class VisualizationFunctions():
             
             return np.array(img, dtype=np.uint8)
 
-    def _compute_coordination_number(df: pd.DataFrame = None, do_plot: bool = True) -> pd.DataFrame:
+    def _compute_coordination_number(df: pd.DataFrame = None, do_plot: bool = False, eps=0, ratio_frame=1) -> pd.DataFrame:
         """ Compute coordination number for each particle """
         
         df = df.copy()
@@ -174,39 +174,37 @@ class VisualizationFunctions():
             coord = np.zeros(len(group), dtype=int)
 
             # define max raduis
-            # r_max = (d[:, None] + d[None, :]).max() / 2
             r_max = d.max()
 
             for i in range(len(group)):
-                # r_max = (d[i] - d.max()) / 2 + tol
                 neighbors = tree.query_ball_point(pts[i], r_max)
                 neighbors.remove(i)
-                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i] + d[j])/2)]
+                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) + eps) <= (d[i] + d[j])/2]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
         
-            # display
-            if do_plot:
+            # # display
+            # if do_plot:
 
-                _, ax = plt.subplots()
+            #     _, ax = plt.subplots()
 
-                name = Path(
-                df['main_path'].iloc[0],
-                df['name'].iloc[0]
-                )
-                img = Image.open(name).convert("L")
-                img = np.array(img, dtype=np.float32)
-                ax.imshow(img, cmap="gray")
+            #     name = Path(
+            #     df['main_path'].iloc[0],
+            #     df['name'].iloc[0]
+            #     )
+            #     img = Image.open(name).convert("L")
+            #     img = np.array(img, dtype=np.float32)
+            #     ax.imshow(img, cmap="gray")
                 
-                # plot coords + radius 
-                for pt, di in zip(pts, d):
-                    ax.plot(pt[0], pt[1])
-                    ax.add_patch(plt.Circle((pt[0], pt[1]), di/2, color="b", fill=False))
+            #     # plot coords + radius 
+            #     for pt, di in zip(pts, d):
+            #         ax.plot(pt[0], pt[1])
+            #         ax.add_patch(plt.Circle((pt[0], pt[1]), di/2, color="b", fill=False))
 
-                    # plot research radius
-                    ax.add_patch(plt.Circle((pt[0], pt[1]), r_max, color="k", fill=False))
+            #         # plot research radius
+            #         ax.add_patch(plt.Circle((pt[0], pt[1]), r_max, color="k", fill=False))
                 
-                plt.show()
+            #     plt.show()
             
         return df
     
@@ -1093,6 +1091,8 @@ class VisualizationFunctions():
             
             if sub_df.empty:
                 continue
+
+            sub_df = self._compute_coordination_number(sub_df, eps=0, ratio_frame=2)
             
             time_interval = sub_df["dt"].unique()
 
@@ -3841,7 +3841,6 @@ class VisualizationFunctions():
             
         return results
 
-
     def Visualize_histogram_diameters(
         self,
         dataframe: pd.DataFrame = None,
@@ -4849,7 +4848,7 @@ class VisualizationFunctions():
             sub_df = data.loc[mask, mask_keys].copy()
             frames = sub_df["frame"].unique()
             
-            if not vel == None:
+            if vel is not None:
                 keys = [
                     "frame", "timestamp", "voltage", "velocity",
                     ]
@@ -4857,6 +4856,16 @@ class VisualizationFunctions():
                 mask = vel["frame"].isin(frames)
                 
                 vel = vel.loc[mask, keys].copy()
+
+                # compute velocity gradient
+                self.rho_air = 1.204 # kg/m3
+                self.nu_air = 1.5e-5 # m2/s
+                if "friction" not in vel:
+                    vel["friction"] = 0.0564 * vel["velocity"]**(7/8)
+                vel_grad = self.rho_air**2 * vel["friction"].mean()**2 / self.nu_air # m/s
+
+                # compute velocity at d_p / 2
+                vel_altitude = sub_df["diameter_mean"].unique() * pixel_size / 1000 / 2 * vel_grad # m/s
             
             dt = sub_df["dt"].unique()
 
@@ -4893,7 +4902,9 @@ class VisualizationFunctions():
                 "m/s": 2,
             }[y_unit]
 
-            print(sub_df["diameter_mean"].unique())
+            # convert vel_altitude to px/s
+            if velocity[0] is not None:
+                vel_altitude = list(vel_altitude / pixel_size)
             
             df = sub_df.sort_values(by=["label", "frame"])
             dt = sub_df["dt"].unique()
@@ -4921,10 +4932,31 @@ class VisualizationFunctions():
             #         popt, _, fit_func, r2 = FitFunction()._fit_curve(group["frame"], group["velocity"], func_base=func_base)
 
             grouped_label = df.groupby("label")
+
+            x_vel, y_vel = None, None
+            if velocity[0] is not None:
+
+                vel_temp = []
+
+                for i, (lbl, group) in enumerate(grouped_label):
+                    print(i, lbl)
+                    
+                    n = len(group)
+                    frames = group["frame"].values
+                    
+                    for v in range(n):
+                        vel_temp.append([frames[v], [vel_altitude[i]]])
+                
+                print(len(vel_temp))
+                x_vel = [[item[0]] for item in vel_temp]
+                y_vel = [[item[1]] for item in vel_temp]
+
             data_dict = {
                 "curves": True,
                 "x": [group["frame"].to_numpy() for _, group in grouped_label],
                 "y": [group["velocity"].to_numpy() for _, group in grouped_label],
+                "vel_y": x_vel,
+                "vel_x": y_vel,
                 "label": [group["label"].to_numpy() for _, group in grouped_label],
                 # "fit": [fit_func],
                 "x_log": False,
@@ -4946,6 +4978,7 @@ class VisualizationFunctions():
                     "frame": group["frame"].to_numpy(),
                     "velocity": group["velocity"].to_numpy(),
                     "diameter": group["diameter"].to_numpy(),
+                    # "velocity_fluid": vel,
                     })
 
                 table = pa.Table.from_pandas(df)
@@ -5709,20 +5742,41 @@ class VisualizationFunctions():
             if sub_df.empty:
                 continue
             
-            unit_factor = {
+            x_unit_factor = {
                 "px": 1,
                 "mm": pixel_size,
                 "m": pixel_size / 1000
             }[x_unit]
-            
-            unit_label = {
-                "px": "px",
-                "mm": "mm",
-                "m": "m",
+
+            x_unit_label = {
+                "px": "X [px]",
+                "mm": "X [mm]",
+                "m": "X [m]",
+            }[x_unit]
+
+            min_decimals_x = {
+                "px": 0,
+                "mm": 3,
+                "m": 3,
             }[x_unit]
             
-            sub_df["x"] *= unit_factor
-            sub_df["y"] *= unit_factor
+            y_unit_factor = {
+                "px": 1,
+                "mm": pixel_size,
+                "m": pixel_size / 1000
+            }[y_unit]
+
+            y_unit_label = {
+                "px": "X [px]",
+                "mm": "X [mm]",
+                "m": "X [m]",
+            }[y_unit]
+
+            min_decimals_y = {
+                "px": 0,
+                "mm": 3,
+                "m": 3,
+            }[y_unit]
             
             # ----- load image
             name = Path(
@@ -5745,9 +5799,12 @@ class VisualizationFunctions():
                 "x": [group["x"].to_numpy() for _, group in grouped],
                 "y": [group["y"].to_numpy() for _, group in grouped],
                 "label": [group["label"].unique() for _, group in grouped],
-                "unit": unit_factor,
-                "x_label": f"X [{unit_label}]",
-                "y_label": f"Y [{unit_label}]",
+                "x_unit": x_unit_factor,
+                "y_unit": y_unit_factor,
+                "x_label": f"{x_unit_label}",
+                "y_label": f"{y_unit_label}",
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
             }
             results.append(data_dict)
             

@@ -1595,7 +1595,7 @@ class ParticleAnalyser(QObject):
             for i in range(len(group)):
                 neighbors = tree.query_ball_point(pts[i], r_max)
                 neighbors.remove(i)
-                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i])) >= (d[i]/2)]
+                neighbors = [j for j in neighbors if np.linalg.norm(pts[j] - pts[i]) >= (d[i]/2)]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
         
