@@ -83,10 +83,10 @@ from Support_functions_preview import FitFunction
 
 # %% Create class
 
+
 class VisualizationFunctions():
     def __init__(self, parent=None):
         pass
-    
     
 
     # # def _compute_target_particles(self, group, length=1024):
@@ -132,12 +132,12 @@ class VisualizationFunctions():
     
     def _load_image(
         self,
-        name: str|Path = None,
+        name: str | Path = None,
         invert: bool = True,
         rotate_image: int = None,
         crop: list = None,
         flip_left_right: bool = False,
-        ):
+        ) -> np.ndarray:
             
             img = Image.open(name).convert("L")
 
@@ -152,16 +152,22 @@ class VisualizationFunctions():
                 ]
             
             if rotate_image is not None:
-                    img = Image.fromarray(img)
-                    if rotate_image == 90: img = img.transpose(Image.ROTATE_90)
-                    elif rotate_image == 180: img = img.transpose(Image.ROTATE_180)
-                    elif rotate_image == 270: img = img.transpose(Image.ROTATE_270)
+                img = Image.fromarray(img)
+                if rotate_image == 90:img = img.transpose(Image.ROTATE_90)
+                elif rotate_image == 180: img = img.transpose(Image.ROTATE_180)
+                elif rotate_image == 270: img = img.transpose(Image.ROTATE_270)
             
             return np.array(img, dtype=np.uint8)
 
-    def _compute_coordination_number(df: pd.DataFrame = None, do_plot: bool = False, eps=0, ratio_frame=1) -> pd.DataFrame:
+    def _compute_coordination_number(
+            self,
+            df: pd.DataFrame = None,
+            do_plot: bool = False,
+            eps=0,
+            ratio_frame=1,
+            ) -> pd.DataFrame:
         """ Compute coordination number for each particle """
-        
+
         df = df.copy()
         df["coordination"] = 0
         
@@ -173,72 +179,18 @@ class VisualizationFunctions():
             tree = cKDTree(pts)
             coord = np.zeros(len(group), dtype=int)
 
-            # define max raduis
+            # define max radius
             r_max = d.max()
+            r_max += 0.1 * r_max
 
             for i in range(len(group)):
                 neighbors = tree.query_ball_point(pts[i], r_max)
                 neighbors.remove(i)
-                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) + eps) <= (d[i] + d[j])/2]
+                neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) + eps) >= d[i]/2]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
-        
-            # # display
-            # if do_plot:
-
-            #     _, ax = plt.subplots()
-
-            #     name = Path(
-            #     df['main_path'].iloc[0],
-            #     df['name'].iloc[0]
-            #     )
-            #     img = Image.open(name).convert("L")
-            #     img = np.array(img, dtype=np.float32)
-            #     ax.imshow(img, cmap="gray")
-                
-            #     # plot coords + radius 
-            #     for pt, di in zip(pts, d):
-            #         ax.plot(pt[0], pt[1])
-            #         ax.add_patch(plt.Circle((pt[0], pt[1]), di/2, color="b", fill=False))
-
-            #         # plot research radius
-            #         ax.add_patch(plt.Circle((pt[0], pt[1]), r_max, color="k", fill=False))
-                
-            #     plt.show()
             
         return df
-    
-    # def _compute_coordination_number(
-    #         self,
-    #         df: pd.DataFrame = None,
-    # ):
-        
-    #     df = df.copy()
-    #     df["coordination"] = 0
-        
-    #     for frame_id, group in df.groupby("frame"):
-    #         pts = group[["x", "y"]].values
-    #         d = group["diameter_mean"].values
-    #         tree = cKDTree(pts)
-            
-    #         coord = np.zeros(len(group), dtype=int)
-
-    #         for i in range(len(group)):
-    #             r = (d[i] - d.max()) / 2 + tol
-    #             neighbors = tree.query_ball_point(pts[i], r)
-    #             neighbors.remove(i)
-    #             neighbors = [j for j in neighbors if np.linalg.norm((pts[j] - pts[i]) <= (d[i]+d[j])/2 + tol)]
-    #             coord[i] = len(neighbors)
-    #         df.loc[group.index, "coordination"] = coord
-            
-    #         return df
-    
-    # def _compute_friction_velocity(
-    #     self,
-    #     velocity: list|np.ndarray = None,
-    # ):
-        
-    #     return 0.0625 * velocity ** (7/8)
 
     def Visualize_num_part_per_frames(
         self,
@@ -264,8 +216,6 @@ class VisualizationFunctions():
         #     raise ValueError(msg)
 
         _, ax = plt.subplots()
-
-        colors = cm.get_cmap("tab10")
         
         results = []
 
@@ -1041,9 +991,9 @@ class VisualizationFunctions():
     def Visualize_coordination_number(
         self,
         dataframe: pd.DataFrame = None,
-        frames: int|list|np.ndarray = None,
-        labels: int|list|np.ndarray = None,
-        time_interval : float = 1/8000,
+        frames: int | list | np.ndarray = None,
+        labels: int | list | np.ndarray = None,
+        time_interval: float = 1/8000,
         pixel_size: float = None,
         x_unit: str = "coord_num",
         y_unit: str = "frequency",
@@ -1092,7 +1042,7 @@ class VisualizationFunctions():
             if sub_df.empty:
                 continue
 
-            sub_df = self._compute_coordination_number(sub_df, eps=0, ratio_frame=2)
+            sub_df = self._compute_coordination_number(df=sub_df, eps=0, ratio_frame=1)
             
             time_interval = sub_df["dt"].unique()
 
@@ -1132,7 +1082,6 @@ class VisualizationFunctions():
             grouped_frames = df.groupby("frame")
 
             max_coord_number = np.max(df["coordination"].unique())
-            print(max_coord_number)
             data_dict = {
                 "hist_3d": True,
                 "x": [np.histogram(group["coordination"], bins=np.arange(0, max_coord_number+2, 1, dtype=int), density=False)[1] for _, group in grouped_frames],
@@ -1168,7 +1117,7 @@ class VisualizationFunctions():
             #         x = group["x"].values
             #         y = group["y"].values
             #         di = group["diameter_mean"].values
-            #         r_max = d.max()
+            #         r_max = di.max()
             #         tol = 0.1 * r_max
                     
             #         for i, j, d in zip(x, y, di):
@@ -4807,6 +4756,7 @@ class VisualizationFunctions():
         language: str = "en",
     ):
         
+        vel_altitude = []
         if velocity is not None:
             if not isinstance(velocity, (list, str, Path)):
                 msg = "dataframe must be list or pd.DataFrame type"
@@ -4858,25 +4808,44 @@ class VisualizationFunctions():
                 vel = vel.loc[mask, keys].copy()
 
                 # compute velocity gradient
-                self.rho_air = 1.204 # kg/m3
-                self.nu_air = 1.5e-5 # m2/s
+                # self.rho_air = 1.204 # kg/m3
+                self.nu_air = 1.56e-5 # m2/s
                 if "friction" not in vel:
-                    vel["friction"] = 0.0564 * vel["velocity"]**(7/8)
-                vel_grad = self.rho_air**2 * vel["friction"].mean()**2 / self.nu_air # m/s
+                    vel["friction"] = 0.0564 * vel["velocity"]**(7/8) # m/s
+                vel_grad = vel["friction"].mean()**2 / self.nu_air # /s
+                print(f"Velocity gradient : {vel_grad:.2f} /s")
 
                 # compute velocity at d_p / 2
-                vel_altitude = sub_df["diameter_mean"].unique() * pixel_size / 1000 / 2 * vel_grad # m/s
-            
+                vel_altitude = [[(d / 2) * pixel_size / 1000 * vel_grad] * len(sub_df[sub_df["diameter_mean"] == d])
+                                for d in sub_df["diameter_mean"].unique()] # m/s
+                vel_altitude = [list(np.array(v) * 1000) for v in vel_altitude] # px/s
+                for v in vel_altitude:
+                    print(f"    Velocity at d/2 : {float(np.unique(v)):.3f} mm/s")
+                
             dt = sub_df["dt"].unique()
 
             unit_factor_x = {
                 "frames": 1,
                 "time": time_interval,
+                "fric_velocity": 1.0,
+                "flow_velocity" : 1.0,
+                "reynolds": 1.0,
             }[x_unit]
 
             unit_label_x = {
                 "frames": "Frames",
                 "time": "Time $[s]$",
+                "fric_velocity": "Friction velocity [m/s]",
+                "flow_velocity" : "Flow velocity [m/s]",
+                "reynolds": "Reynold number",
+            }[x_unit]
+
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+                "fric_velocity": 3,
+                "flow_velocity": 3,
+                "reynolds": 3,
             }[x_unit]
             
             unit_factor_y = {
@@ -4891,20 +4860,11 @@ class VisualizationFunctions():
                 "m/s": "Velocity $[m/s]$",
             }[y_unit]
 
-            min_decimals_x = {
-                "frames": 0,
-                "time": 3,
-            }[x_unit]
-
             min_decimals_y = {
                 "px/s": 0,
                 "mm/s": 0,
                 "m/s": 2,
             }[y_unit]
-
-            # convert vel_altitude to px/s
-            if velocity[0] is not None:
-                vel_altitude = list(vel_altitude / pixel_size)
             
             df = sub_df.sort_values(by=["label", "frame"])
             dt = sub_df["dt"].unique()
@@ -4933,30 +4893,11 @@ class VisualizationFunctions():
 
             grouped_label = df.groupby("label")
 
-            x_vel, y_vel = None, None
-            if velocity[0] is not None:
-
-                vel_temp = []
-
-                for i, (lbl, group) in enumerate(grouped_label):
-                    print(i, lbl)
-                    
-                    n = len(group)
-                    frames = group["frame"].values
-                    
-                    for v in range(n):
-                        vel_temp.append([frames[v], [vel_altitude[i]]])
-                
-                print(len(vel_temp))
-                x_vel = [[item[0]] for item in vel_temp]
-                y_vel = [[item[1]] for item in vel_temp]
-
             data_dict = {
                 "curves": True,
                 "x": [group["frame"].to_numpy() for _, group in grouped_label],
                 "y": [group["velocity"].to_numpy() for _, group in grouped_label],
-                "vel_y": x_vel,
-                "vel_x": y_vel,
+                "velocity": vel_altitude[::-1] if vel_altitude else None,
                 "label": [group["label"].to_numpy() for _, group in grouped_label],
                 # "fit": [fit_func],
                 "x_log": False,
