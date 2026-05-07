@@ -459,6 +459,9 @@ class HelperTab4(QWidget):
     def _open_options(self):
         """Open option window"""
 
+        if not hasattr(self, "settings"):
+            self.settings = None
+
         dialog = OptionDialog(self, settings=self.settings)
 
         def _handle_settings_applied(settings, velocity):
@@ -466,17 +469,18 @@ class HelperTab4(QWidget):
             self.velocity_profile = velocity if velocity else None
 
             # lambda settings:
-            self.viewer._display(
-                self.func(
-                    dataframe=self.data_to_plot["dataframe"],
-                    pixel_size=self.data_to_plot["pixel_size"],
-                    frames=self.data_to_plot["frames"],
-                    labels=self.data_to_plot["labels"],
-                    x_unit=self.settings.x_axis,
-                    y_unit=self.settings.y_axis,
-                    velocity=self.velocity_profile,
+            if settings:
+                self.viewer._display(
+                    self.func(
+                        dataframe=self.data_to_plot["dataframe"],
+                        pixel_size=self.data_to_plot["pixel_size"],
+                        frames=self.data_to_plot["frames"],
+                        labels=self.data_to_plot["labels"],
+                        x_unit=self.settings.x_axis,
+                        y_unit=self.settings.y_axis,
+                        velocity=self.velocity_profile,
+                    )
                 )
-            )
 
         dialog.settings_applied.connect(_handle_settings_applied)
         dialog.exec_()
@@ -553,6 +557,7 @@ class HelperTab4(QWidget):
                     labels=self.data_to_plot["labels"],
                     x_unit=self.settings.x_axis,
                     y_unit=self.settings.y_axis,
+                    velocity=self.velocity_profile if self.velocity_profile else None,
                 )
 
         self.viewer._display(data_list)
@@ -1146,11 +1151,11 @@ class ImageViewer(QWidget):
                     label=f"Fit label {i}",
                 )
 
-            if "velocity" in data_dict:
-                if data_dict["velocity"] is not None:
+            if "velocity_f" in data_dict:
+                if data_dict["velocity_f"] is not None:
                     self.ax.plot(
                         data_dict["x"][i] * data_dict["x_unit"],
-                        data_dict["velocity"][i],
+                        data_dict["velocity_f"][i] * data_dict["y_unit_2"],
                         color=colors(i),
                         alpha=0.5,
                         label=f"Fluid velocity at $r_p({data_dict['label'][i][0]})$",
@@ -1549,30 +1554,46 @@ class OptionDialog(QDialog):
         tab2 = QWidget()
         tab2_layout = QVBoxLayout(tab2)
 
-        # ----- X axis
-        tab2_layout.addWidget(QLabel("X axis"))
-        self.x_combo = QComboBox()
-        # add item on combo box
-        for label, value in self.settings.x_axis_options.items():
-            self.x_combo.addItem(label, value)
-        # set current data
-        idx = self.x_combo.findData(self.settings.x_axis)
-        self.x_combo.setCurrentIndex(idx)
-        tab2_layout.addWidget(self.x_combo)
+        if self.settings is not None:
 
-        # ----- Y axis
-        tab2_layout.addWidget(QLabel("Y axis"))
-        self.y_combo = QComboBox()
-        # add item on combo box
-        for label, value in self.settings.y_axis_options.items():
-            self.y_combo.addItem(label, value)
-        # set current data
-        idx = self.y_combo.findData(self.settings.y_axis)
-        self.y_combo.setCurrentIndex(idx)
-        tab2_layout.addWidget(self.y_combo)
+            print(self.settings)
 
-        self.x_combo.currentTextChanged.connect(self._update_x)
-        self.y_combo.currentTextChanged.connect(self._update_y)
+            # ----- X axis
+            tab2_layout.addWidget(QLabel("X axis"))
+            self.x_combo = QComboBox()
+            # add item on combo box
+            for label, value in self.settings.x_axis_options.items():
+                self.x_combo.addItem(label, value)
+            # set current data
+            idx = self.x_combo.findData(self.settings.x_axis)
+            self.x_combo.setCurrentIndex(idx)
+            tab2_layout.addWidget(self.x_combo)
+
+            # ----- Y axis
+            tab2_layout.addWidget(QLabel("Y axis"))
+            self.y_combo = QComboBox()
+            # add item on combo box
+            for label, value in self.settings.y_axis_options.items():
+                self.y_combo.addItem(label, value)
+            # set current data
+            idx = self.y_combo.findData(self.settings.y_axis)
+            self.y_combo.setCurrentIndex(idx)
+            tab2_layout.addWidget(self.y_combo)
+
+            # ----- Z options
+            if self.settings.z_axis_options:
+                tab2_layout.addWidget(QLabel("Z axis"))
+                self.z_combo = QComboBox()
+                # add item on combo box
+                for label, value in self.settings.z_axis_options.items():
+                    self.z_combo.addItem(label, value)
+                # set current data
+                idx = self.z_combo.findData(self.settings.y_axis)
+                self.z_combo.setCurrentIndex(idx)
+                tab2_layout.addWidget(self.z_combo)
+
+            self.x_combo.currentTextChanged.connect(self._update_x)
+            self.y_combo.currentTextChanged.connect(self._update_y)
 
         # ----- Add tabs
         self.tabs.addTab(tab1, "Velocity file")
@@ -1820,7 +1841,7 @@ class CoordinationNumberSettings:
             "frequency",
         }
         # Z axis
-        self.y_axis_options = {
+        self.z_axis_options = {
             "frames",
             "time_s",
             "time_ms",
@@ -1889,11 +1910,13 @@ class CollisionFrequencySettings:
         }
         # Y axis
         self.y_axis_options = {
-            "/s",
+            "frequency_s",
+            "frequency_ks",
+            "frequency_ms",
         }
         # default selection
         self.x_axis = "time"
-        self.y_axis = "/s"
+        self.y_axis = "frequency_ms"
 
 
 class RemainingFractionSettings:
