@@ -1275,6 +1275,7 @@ class ImageViewer(QWidget):
             # print(z_ticks)
 
         else:
+
             x_ticks = self.ax.get_xticks()[1:]
             self.ax.set_xticks(x_ticks)
             self.ax.set_xticklabels(

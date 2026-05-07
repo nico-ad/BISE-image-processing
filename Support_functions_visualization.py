@@ -6341,21 +6341,21 @@ class VisualizationFunctions:
 
             min_decimals_x = {
                 "px": 0,
-                "mm": 3,
+                "mm": 1,
                 "m": 3,
             }[x_unit]
 
             y_unit_factor = {"px": 1, "mm": pixel_size, "m": pixel_size / 1000}[y_unit]
 
             y_unit_label = {
-                "px": "X [px]",
-                "mm": "X [mm]",
-                "m": "X [m]",
+                "px": "Y [px]",
+                "mm": "Y [mm]",
+                "m": "Y [m]",
             }[y_unit]
 
             min_decimals_y = {
                 "px": 0,
-                "mm": 3,
+                "mm": 1,
                 "m": 3,
             }[y_unit]
 
@@ -6366,11 +6366,6 @@ class VisualizationFunctions:
                 # Path("D:\\BISE_experiments\\Essai_7\\8000Hz\\4x10mm3\\3\\Images"),
             )
             img = self._load_image(name, invert=False, rotate_image=rotate)
-            # img = np.array(ImageOps.flip(Image.fromarray(img)))
-
-            # _, ax = plt.subplots()
-            # ax.imshow(img, cmap="gray")
-            # plt.show()
 
             # ----- group data
             grouped = sub_df.groupby("label")
