@@ -31,13 +31,6 @@ class ParticleAnalysisApp(QMainWindow):
         self.font_header.setBold(True)
         self.font_content = QFont("Arial", 11)
         self.font_button = QFont("Arial", 14)
-        self.fonts = {
-            "tabs": self.font_tabs,
-            "title": self.font_title,
-            "header": self.font_header,
-            "content": self.font_content,
-            "button": self.font_button,
-        }
         
         # graph font
         self.dict_fontsize = {
@@ -52,6 +45,15 @@ class ParticleAnalysisApp(QMainWindow):
                 "wspace": 0.0,
                 "hspace": 0.0,
             }
+        }
+
+        self.fonts = {
+            "tabs": self.font_tabs,
+            "title": self.font_title,
+            "header": self.font_header,
+            "content": self.font_content,
+            "button": self.font_button,
+            "dict_fontsize": self.dict_fontsize,
         }
         
         # variables
