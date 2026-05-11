@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QGridLayout,
     QStackedWidget,
+    QHeaderView,
 )
 from PyQt5.QtWidgets import (
     QStyledItemDelegate,
@@ -160,12 +161,12 @@ class HelperTab1(QWidget):
         self.parent.load_folders_names.horizontalHeader().setFont(self.parent.font_header)
         self.parent.load_folders_names.setColumnWidth(0, 250)
         
-        # ----- save files table
-        self.parent.save_name_files = QTableWidget(tab_1)
-        self.parent.save_name_files.setColumnCount(1)
-        self.parent.save_name_files.setHorizontalHeaderLabels(["Select files"])
-        self.parent.save_name_files.horizontalHeader().setFont(self.parent.font_header)
-        self.parent.save_name_files.setColumnWidth(0, 250)
+        # # ----- save files table
+        # self.parent.save_name_files = QTableWidget(tab_1)
+        # self.parent.save_name_files.setColumnCount(1)
+        # self.parent.save_name_files.setHorizontalHeaderLabels(["Select files"])
+        # self.parent.save_name_files.horizontalHeader().setFont(self.parent.font_header)
+        # self.parent.save_name_files.setColumnWidth(0, 250)
         
         # ----- Data group
         data_group = QGroupBox("Data")
@@ -174,7 +175,7 @@ class HelperTab1(QWidget):
         
         # folder tables
         data_group_layout.addWidget(self.parent.load_folders_names)
-        data_group_layout.addWidget(self.parent.save_name_files)
+        # data_group_layout.addWidget(self.parent.save_name_files)
         
         # buttons
         self.add_folders_btn = QPushButton("Add folders")
@@ -195,6 +196,12 @@ class HelperTab1(QWidget):
         control_layout = QVBoxLayout()
         control_group.setLayout(control_layout)
         
+        self.option_btn = QPushButton("Options")
+        self.option_btn.setFont(self.parent.font_button)
+        self.option_btn.setMinimumHeight(40)
+        control_layout.addWidget(self.option_btn)
+        self.option_btn.clicked.connect(self._option_dialog)
+
         self.preview_btn = QPushButton("Preview")
         self.preview_btn.setFont(self.parent.font_button)
         self.preview_btn.setMinimumHeight(40)
@@ -309,120 +316,120 @@ class HelperTab1(QWidget):
         # workspace.setLayout(workspace_layout)
         workspace_layout.setSpacing(15)
         
-        # ----- Parameters + checkbox side by side
-        params_checkbox_container = QWidget()
-        params_checkbox_layout = QHBoxLayout(params_checkbox_container)
-        params_checkbox_layout.setSpacing(20)
+        # # ----- Parameters + checkbox side by side
+        # params_checkbox_container = QWidget()
+        # params_checkbox_layout = QHBoxLayout(params_checkbox_container)
+        # params_checkbox_layout.setSpacing(20)
         
-        # ----- Parameters table
-        param_group = QGroupBox("Parameters")
-        param_layout = QVBoxLayout(param_group)
-        # param_group.setLayout(param_layout)
+        # # ----- Parameters table
+        # param_group = QGroupBox("Parameters")
+        # param_layout = QVBoxLayout(param_group)
+        # # param_group.setLayout(param_layout)
         
-        combo_columns = {
-            4: [True, False],
-            5: [True, False],
-            10: [True, False],
-            11: ["None", "ROTATE_90", "ROTATE_180", "ROTATE_270"],
-        }
+        # combo_columns = {
+        #     4: [True, False],
+        #     5: [True, False],
+        #     10: [True, False],
+        #     11: ["None", "ROTATE_90", "ROTATE_180", "ROTATE_270"],
+        # }
         
-        self.parent.parameters_table_tab_1 = QTableWidget(tab_1)
+        # self.parent.parameters_table_tab_1 = QTableWidget(tab_1)
         
-        n_rows = len(self.parent.default_params)
-        self.parent.parameters_table_tab_1.setColumnCount(3)
-        self.parent.parameters_table_tab_1.setRowCount(n_rows)
-        self.parent.parameters_table_tab_1.blockSignals(True)
+        # n_rows = len(self.parent.default_params)
+        # self.parent.parameters_table_tab_1.setColumnCount(3)
+        # self.parent.parameters_table_tab_1.setRowCount(n_rows)
+        # self.parent.parameters_table_tab_1.blockSignals(True)
         
-        self.parent.parameters_table_tab_1.setHorizontalHeaderLabels(
-            ["Parameters", "values", "Units"]
-        )
+        # self.parent.parameters_table_tab_1.setHorizontalHeaderLabels(
+        #     ["Parameters", "values", "Units"]
+        # )
         
-        for i, (key, (value, unit)) in enumerate(self.parent.default_params.items()):
-            item_key = QTableWidgetItem(str(key))
-            item_key.setFlags(item_key.flags() & ~Qt.ItemIsEditable)
-            self.parent.parameters_table_tab_1.setItem(i, 0, item_key)
+        # for i, (key, (value, unit)) in enumerate(self.parent.default_params.items()):
+        #     item_key = QTableWidgetItem(str(key))
+        #     item_key.setFlags(item_key.flags() & ~Qt.ItemIsEditable)
+        #     self.parent.parameters_table_tab_1.setItem(i, 0, item_key)
             
-            if i in combo_columns:
-                combo = QComboBox()
-                combo.addItems([str(x) for x in combo_columns[i]])
-                combo.setCurrentText(str(combo_columns[i][0]))
+        #     if i in combo_columns:
+        #         combo = QComboBox()
+        #         combo.addItems([str(x) for x in combo_columns[i]])
+        #         combo.setCurrentText(str(combo_columns[i][0]))
                 
-                combo.currentIndexChanged.connect(self._updatePreview)
-                self.parent.parameters_table_tab_1.setCellWidget(i, 1, combo)
-            else:
-                item_value = QTableWidgetItem(str(value))
-                item_value.setData(Qt.UserRole, value)
-                self.parent.parameters_table_tab_1.setItem(i, 1, item_value)
+        #         combo.currentIndexChanged.connect(self._updatePreview)
+        #         self.parent.parameters_table_tab_1.setCellWidget(i, 1, combo)
+        #     else:
+        #         item_value = QTableWidgetItem(str(value))
+        #         item_value.setData(Qt.UserRole, value)
+        #         self.parent.parameters_table_tab_1.setItem(i, 1, item_value)
             
-            unit_display = "" if unit is None else unit
-            item_unit = QTableWidgetItem(str(unit_display))
-            item_unit.setFlags(item_unit.flags() & ~Qt.ItemIsEditable)
-            self.parent.parameters_table_tab_1.setItem(i, 2, item_unit)
+        #     unit_display = "" if unit is None else unit
+        #     item_unit = QTableWidgetItem(str(unit_display))
+        #     item_unit.setFlags(item_unit.flags() & ~Qt.ItemIsEditable)
+        #     self.parent.parameters_table_tab_1.setItem(i, 2, item_unit)
         
-        self.parent.parameters_table_tab_1.itemChanged.connect(self._on_item_changed)
-        self.parent.parameters_table_tab_1.blockSignals(False)
+        # self.parent.parameters_table_tab_1.itemChanged.connect(self._on_item_changed)
+        # self.parent.parameters_table_tab_1.blockSignals(False)
         
-        # self.parent.parameters_table_tab_1.horizontalHeader().setStretchLastSection(True)
-        # self.parent.parameters_table_tab_1.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # # self.parent.parameters_table_tab_1.horizontalHeader().setStretchLastSection(True)
+        # # self.parent.parameters_table_tab_1.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         
-        # self.parent.parameters_table_tab_1.setColumnWidth(0, 200)
-        # self.parent.parameters_table_tab_1.setColumnWidth(1, 200)
-        # self.parent.parameters_table_tab_1.setColumnWidth(2, 200)
-        param_layout.addWidget(self.parent.parameters_table_tab_1)
+        # # self.parent.parameters_table_tab_1.setColumnWidth(0, 200)
+        # # self.parent.parameters_table_tab_1.setColumnWidth(1, 200)
+        # # self.parent.parameters_table_tab_1.setColumnWidth(2, 200)
+        # param_layout.addWidget(self.parent.parameters_table_tab_1)
         
-        # ----- Checkbox grid
-        checkbox_group = QGroupBox("Processing options")
-        checkbox_layout = QGridLayout(checkbox_group)
-        # checkbox_group.setLayout(checkbox_layout)
+        # # ----- Checkbox grid
+        # checkbox_group = QGroupBox("Processing options")
+        # checkbox_layout = QGridLayout(checkbox_group)
+        # # checkbox_group.setLayout(checkbox_layout)
         
-        self.thresh_method = QCheckBox("Enable threshold")
-        self.thresh_method.setChecked(True)
-        self.thresh_method.stateChanged.connect(self._updatePreview)
+        # self.thresh_method = QCheckBox("Enable threshold")
+        # self.thresh_method.setChecked(True)
+        # self.thresh_method.stateChanged.connect(self._updatePreview)
         
-        self.fill_holes = QCheckBox("Fill holes")
-        self.fill_holes.setChecked(True)
-        self.fill_holes.stateChanged.connect(self._updatePreview)
+        # self.fill_holes = QCheckBox("Fill holes")
+        # self.fill_holes.setChecked(True)
+        # self.fill_holes.stateChanged.connect(self._updatePreview)
         
-        self.clear_border = QCheckBox("Clear border")
-        self.clear_border.setChecked(True)
-        self.clear_border.stateChanged.connect(self._updatePreview)
+        # self.clear_border = QCheckBox("Clear border")
+        # self.clear_border.setChecked(True)
+        # self.clear_border.stateChanged.connect(self._updatePreview)
         
-        self.remove_small = QCheckBox("Remove small particles")
-        self.remove_small.setChecked(True)
-        self.remove_small.stateChanged.connect(self._updatePreview)
+        # self.remove_small = QCheckBox("Remove small particles")
+        # self.remove_small.setChecked(True)
+        # self.remove_small.stateChanged.connect(self._updatePreview)
         
-        self.identify_particles = QCheckBox("Identify particles")
-        self.identify_particles.setChecked(True)
-        self.identify_particles.stateChanged.connect(self._updatePreview)
+        # self.identify_particles = QCheckBox("Identify particles")
+        # self.identify_particles.setChecked(True)
+        # self.identify_particles.stateChanged.connect(self._updatePreview)
         
-        self.label_particles = QCheckBox("Label particles")
-        self.label_particles.setChecked(True)
-        self.label_particles.stateChanged.connect(self._updatePreview)
+        # self.label_particles = QCheckBox("Label particles")
+        # self.label_particles.setChecked(True)
+        # self.label_particles.stateChanged.connect(self._updatePreview)
         
-        checkbox_layout.addWidget(self.thresh_method, 0, 0)
-        checkbox_layout.addWidget(self.fill_holes, 0, 1)
-        checkbox_layout.addWidget(self.clear_border, 1, 0)
-        checkbox_layout.addWidget(self.remove_small, 1, 1)
-        checkbox_layout.addWidget(self.identify_particles, 2, 0)
-        checkbox_layout.addWidget(self.label_particles, 2, 1)
+        # checkbox_layout.addWidget(self.thresh_method, 0, 0)
+        # checkbox_layout.addWidget(self.fill_holes, 0, 1)
+        # checkbox_layout.addWidget(self.clear_border, 1, 0)
+        # checkbox_layout.addWidget(self.remove_small, 1, 1)
+        # checkbox_layout.addWidget(self.identify_particles, 2, 0)
+        # checkbox_layout.addWidget(self.label_particles, 2, 1)
         
-        checkbox_layout.setAlignment(Qt.AlignTop)
-        # checkbox_layout.setSpacing(10)
+        # checkbox_layout.setAlignment(Qt.AlignTop)
+        # # checkbox_layout.setSpacing(10)
         
-        self.params_chkbx = {
-            "threshold": self.thresh_method.isChecked(),
-            "fill_holes":self.fill_holes.isChecked(),
-            "clear_border": self.clear_border.isChecked(),
-            "remove_small": self.remove_small.isChecked(),
-            "identify_part": self.identify_particles.isChecked(),
-            "label_part": self.label_particles.isChecked(),
-        }
+        # self.params_chkbx = {
+        #     "threshold": self.thresh_method.isChecked(),
+        #     "fill_holes":self.fill_holes.isChecked(),
+        #     "clear_border": self.clear_border.isChecked(),
+        #     "remove_small": self.remove_small.isChecked(),
+        #     "identify_part": self.identify_particles.isChecked(),
+        #     "label_part": self.label_particles.isChecked(),
+        # }
         
-        params_checkbox_layout.addWidget(param_group, stretch=3)
-        params_checkbox_layout.addWidget(checkbox_group, stretch=1)
-        workspace_layout.addWidget(params_checkbox_container)
+        # params_checkbox_layout.addWidget(param_group, stretch=3)
+        # params_checkbox_layout.addWidget(checkbox_group, stretch=1)
+        # workspace_layout.addWidget(params_checkbox_container)
         
-        workspace_layout.addStretch()
+        # workspace_layout.addStretch()
         
         # ----- preview area
         preview_splitter = QSplitter(Qt.Horizontal)
@@ -466,10 +473,10 @@ class HelperTab1(QWidget):
         preview_splitter.addWidget(image_group)
         preview_splitter.addWidget(sizing_group)
         
-        # add workspace widgets
-        workspace_layout.addWidget(param_group)
-        workspace_layout.addWidget(checkbox_group)
-        workspace_layout.addWidget(preview_splitter, 1)
+        # # add workspace widgets
+        # workspace_layout.addWidget(param_group)
+        # workspace_layout.addWidget(checkbox_group)
+        # workspace_layout.addWidget(preview_splitter, 1)
         
         # ==========
         # ADD TO MAIN SPLITTER
@@ -617,6 +624,19 @@ class HelperTab1(QWidget):
         self.parent.parameters_table_tab_4.blockSignals(True)
         self.parent.parameters_table_tab_4.setItem(row, col, QTableWidgetItem(text))
         self.parent.parameters_table_tab_4.blockSignals(False)
+
+    def _option_dialog(self):
+        """ open dialog window """
+
+        dialog = OptionDialog(self, settings=None, fonts=self.parent.fonts)
+
+        def _handle_settings_applied(parameters, options):
+            if parameters and options:
+                self.analysis_parameters = parameters
+                self.preview_options = options
+
+        dialog.settings_applied.connect(_handle_settings_applied)
+        dialog.exec_()
 
     def _previewAnalysis(self):
         """ load and display preview image """
@@ -926,3 +946,201 @@ class HelperTab1(QWidget):
         self.current_index += 1
         self._start_next_video()
         
+
+class OptionDialog(QDialog):
+
+    # declare signal
+    settings_applied = pyqtSignal(object, object)
+
+    def __init__(self, parent=None, settings=None, fonts=None):
+        super().__init__(parent)
+
+        self.settings = settings
+        self.fonts = fonts
+
+        # initialize default parameters
+        self.default_params = {
+            "Images range": ([0, 21837], ""),
+            "Acquisition frequency ": (8000, "Hz"),
+            "Circularity thresh": ([0.2, 1.0], ""),
+            "Small objects": (20, "px"),
+            "Enable subpixel detection": (False, ""),
+            "Invert grayscale": (True, ""),
+            "Pixel size": (1/146, "mm/px"),
+            "Number of CPU": (10, ""),
+            "Number of CPU per image": (1, ""),
+            "Image format": (".jpg", ""),
+            "Video sequence": (True, ""),
+            "Rotate image": ("NONE", ""),
+            "H maxima": (0.5, ""),
+        }
+
+        # combo boxes
+        combo_columns = {
+            4: [True, False],
+            5: [True, False],
+            10: [True, False],
+            11: ["None", "ROTATE_90", "ROTATE_180", "ROTATE_270"],
+        }
+
+        # ----- dialog layout
+        self.setWindowTitle("Graph options")
+        self.resize(400, 300)
+
+        main_layout = QVBoxLayout(self)
+
+        # ----- tabs
+        self.tabs = QTabWidget()
+        main_layout.addWidget(self.tabs)
+
+        # =========================
+        # TAB 1 : parameters
+        # =========================
+        tab1 = QWidget()
+        tab1_layout = QVBoxLayout(tab1)
+
+        # table for parameters
+        self.table = QTableWidget(tab1)
+        n_rows = len(self.default_params)
+        self.table.setColumnCount(3)
+        self.table.setRowCount(n_rows)
+        self.table.blockSignals(True)
+
+        self.table.setHorizontalHeaderLabels(["Parameters", "values", "Units"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        
+        # set header type to bold
+        for col in range(self.table.columnCount()):
+            item = self.table.horizontalHeaderItem(col)
+            if item is not None:
+                item.setFont(self.fonts["header"])
+
+        # fill table cells
+        for i, (key, (value, unit)) in enumerate(self.default_params.items()):
+            # parameter name
+            item_key = QTableWidgetItem(str(key))
+            item_key.setFlags(item_key.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(i, 0, item_key)
+            
+            # parameter value
+            if i in combo_columns:
+                combo = QComboBox()
+                combo.addItems([str(x) for x in combo_columns[i]])
+                combo.setCurrentText(str(value))
+                # store value type in UserRole of combobox
+                combo.setProperty("default_value", value)
+                self.table.setCellWidget(i, 1, combo)
+            else:
+                # value formatting
+                if isinstance(value, float) and value < 1:
+                    display_text = f"{value:.3e}"
+                else:
+                    display_text = str(value)
+                item_value = QTableWidgetItem(display_text)
+                item_value.setData(Qt.UserRole, value)
+                self.table.setItem(i, 1, item_value)
+            
+            # units
+            unit_display = "" if unit is None else str(unit)
+            item_unit = QTableWidgetItem(unit_display)
+            item_unit.setFlags(item_unit.flags() & ~Qt.ItemIsEditable)
+            self.table.setItem(i, 2, item_unit)
+        
+        self.table.blockSignals(False)
+
+        tab1_layout.addWidget(self.table)
+        self.tabs.addTab(tab1, "Parameters")
+
+        # =========================
+        # TAB 2 : processing options
+        # =========================
+        tab2 = QWidget()
+        tab2_layout = QVBoxLayout(tab2)
+
+        # group box
+        checkbox_group = QGroupBox("Processing options")
+        params_chkbx_layout = QVBoxLayout(checkbox_group)
+
+        # create checkbox
+        self.thresh_method = QCheckBox("Threshold")
+        self.thresh_method.setChecked(True)
+        self.thresh_method.setToolTip("Apply binarization threshold on images to remove background")
+
+        self.fill_holes = QCheckBox("Fill holes")
+        self.fill_holes.setChecked(True)
+        self.fill_holes.setToolTip("After binarization, fill holes inside objects")
+
+        self.clear_border = QCheckBox("Clear border")
+        self.clear_border.setChecked(True)
+        self.clear_border.setToolTip("Remove objects that touches border")
+
+        self.remove_small = QCheckBox("Remove small objects")
+        self.remove_small.setChecked(True)
+        self.remove_small.setToolTip("Remove objects that contains less than n pixels")
+
+        self.identify_particles = QCheckBox("Identify particles")
+        self.identify_particles.setChecked(True)
+        self.identify_particles.setToolTip("Apply contour on detected particles and aggregates")
+
+        self.label_particles = QCheckBox("Label particles")
+        self.label_particles.setChecked(True)
+        self.label_particles.setToolTip("Label particles")
+
+        # add checkboxes
+        for chk in [self.thresh_method, self.fill_holes,
+                    self.clear_border, self.remove_small,
+                    self.identify_particles, self.label_particles]:
+            params_chkbx_layout.addWidget(chk)
+        
+        tab2_layout.addWidget(checkbox_group)
+        self.tabs.addTab(tab2, "Processing options")
+        
+        # initialize params dictionnary
+        self.params_chkbx = {
+            "threshold": self.thresh_method.isChecked(),
+            "fill_holes": self.fill_holes.isChecked(),
+            "clear_border": self.clear_border.isChecked(),
+            "remove_small": self.remove_small.isChecked(),
+            "identify_part": self.identify_particles.isChecked(),
+            "label_part": self.label_particles.isChecked(),
+        }
+
+        # =========================
+        # Apply button
+        # =========================
+
+        self.apply_btn = QPushButton("Apply")
+        main_layout.addWidget(self.apply_btn)
+        self.apply_btn.clicked.connect(self._apply_settings)
+
+    def _apply_settings(self):
+        """ Set settings """
+
+        # update checkbox dict
+        self.params_chkbx = {
+            "threshold": self.thresh_method.isChecked(),
+            "fill_holes": self.fill_holes.isChecked(),
+            "clear_border": self.clear_border.isChecked(),
+            "remove_small": self.remove_small.isChecked(),
+            "identify_part": self.identify_particles.isChecked(),
+            "label_part": self.label_particles.isChecked(),
+        }
+
+        table_values = {}
+        for row in range(self.table.rowCount()):
+            key = self.table.item(row, 0).text()
+            cell_widget = self.table.cellWidget(row, 1)
+            if cell_widget:  # combobox
+                default_value = cell_widget.property("default_value")
+                value = cell_widget.currentText()
+                if isinstance(default_value, bool):
+                    value = value == "True"
+            else:   # QTableWidgetItem
+                value = self.table.item(row, 1).data(Qt.UserRole)
+            
+            table_values[key] = value
+        
+        # emit signal
+        self.settings_applied.emit(table_values, self.params_chkbx)
