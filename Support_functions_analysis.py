@@ -233,7 +233,7 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
 
     distance = distance_transform_edt(binary)
 
-    mask = morphology.h_maxima(distance, h=0.01)
+    mask = morphology.h_maxima(distance, h=0.3)
 
     markers = measure.label(mask)
 
@@ -551,7 +551,7 @@ class ParticleAnalyser(QObject):
 
         self.max_distance = 10.0
 
-        self.memory = 5
+        self.memory = 5 # frames
 
     def _get_worker_state(self):
         return {
@@ -636,7 +636,7 @@ class ParticleAnalyser(QObject):
             if isinstance(list_images, str):
                 list_images = [list_images]
 
-            self.list_images = list_images
+            self.list_images = list_images[:100]
 
             if output_path.exists():
                 print(f"File {output_path.name} already exists in {output_path.parent}")
@@ -1466,7 +1466,7 @@ class ParticleAnalyser(QObject):
 
     def Assign_ID_ROI(
         dataframe: pd.DataFrame = None,
-        max_dist: int = 10,  # px
+        max_dist: int = 10,  # search radius in px
         do_plot: bool = True,
     ):
         """ Assign IDs to particles based on a frame-to-frame tracking """
@@ -1500,7 +1500,7 @@ class ParticleAnalyser(QObject):
                 
             # compute cost matrix
             cost = cdist(prev_pos, curr_pos)
-            cost[cost > max_dist] = 1e3
+            cost[cost > max_dist] = 1e3  # px
 
             ids = np.full(n, -1, dtype=int)
             if np.all(~np.isfinite(cost)):
@@ -1539,26 +1539,27 @@ class ParticleAnalyser(QObject):
                 ax.imshow(img, cmap="gray")
 
                 # ----- add labels
-                for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
-                    # add particle coordinates
-                    ax.scatter(
-                        group_labels["x"],
-                        group_labels["y"],
-                        marker="o",
-                        alpha=1.0,
-                    )
-
-                    # ----- add circle per label
-                    for x, y, d in zip(
-                        group_labels["x"], group_labels["y"], group_labels["diameter"]
-                    ):
-                        # add equivalent diameter
-                        ax.add_patch(plt.Circle((x, y), d / 2, color="b", fill=False))
-
-                        # add neighboor distance
-                        ax.add_patch(
-                            plt.Circle((x, y), max_dist, color="r", fill=False)
+                if f == 0:
+                    for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
+                        # add particle coordinates
+                        ax.scatter(
+                            group_labels["x"],
+                            group_labels["y"],
+                            marker="o",
+                            alpha=1.0,
                         )
+
+                        # ----- add circle per label
+                        for x, y, d in zip(
+                            group_labels["x"], group_labels["y"], group_labels["diameter"]
+                        ):
+                            # add equivalent diameter
+                            ax.add_patch(plt.Circle((x, y), d / 2, color="b", fill=False))
+
+                            # add neighboor distance
+                            ax.add_patch(
+                                plt.Circle((x, y), max_dist, color="r", fill=False)
+                            )
 
                 # ax.set_xlim(0, df["image_height"])
                 # ax.set_ylim(0, df["image_width"])
@@ -1579,6 +1580,8 @@ class ParticleAnalyser(QObject):
                 )  # , fontsize=self.dict_fontsize["ticks"])
 
                 plt.show()
+
+                break
 
         # ----- plot
         if do_plot:

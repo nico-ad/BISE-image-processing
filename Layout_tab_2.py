@@ -35,6 +35,7 @@ import time
 import ast
 
 from pathlib import Path
+import json
 
 import psutil
 from collections import deque
@@ -43,7 +44,7 @@ import Support_functions_analysis as func_analysis
 
 class HelperTab2(QWidget):
     
-    def __init__(self, parent):
+    def __init__(self, parent=None):
         super().__init__(parent)
         
         self.parent = parent
@@ -56,6 +57,8 @@ class HelperTab2(QWidget):
         self.results = {}
         self.current_folder = None
         self.folder_start_times = {}
+
+        # self.settings = None
         
         if hasattr(self.parent, "helper_tab_1"):
             self.parent.helper_tab_1.folders_changed.connect(self._on_folders_changed)
@@ -73,7 +76,7 @@ class HelperTab2(QWidget):
         # ==========
         self.title_page_2 = QLabel("Analyse images")
         self.title_page_2.setAlignment(Qt.AlignCenter)
-        self. title_page_2.setFont(self.parent.font_title)
+        self.title_page_2.setFont(self.parent.font_title)
         self.title_page_2.setFixedHeight(50)
         main_layout.addWidget(self.title_page_2)
         
@@ -199,7 +202,6 @@ class HelperTab2(QWidget):
         
         folders_ok = getattr(self.parent, "folders_list", None) and len(self.parent.folders_list) > 0
         files_ok = getattr(self.parent, "files_list", None) and len(self.parent.files_list) > 0
-        # pixel_size_ok = getattr(self.parent, "pixel_size", None) and isinstance(self.parent.pixel_size, float) and self.parent.pixel_size > 0.0
         
         if folders_ok and files_ok:
             self.run_button.setEnabled(True)
@@ -208,6 +210,16 @@ class HelperTab2(QWidget):
             self.run_button.setEnabled(False)
             self.run_button.setStyleSheet("background-color: lightgray; color: white;")
     
+    def _handle_settings(self, settings):
+        # table_values = settings["table"]
+        # checkbox_values = settings["checkboxes"]
+        # print(table_values)
+        # print(checkbox_values)
+        self.settings = settings
+        # print(self.settings)
+        # print()
+        # print("LOL")
+
     def _start_analysis(self):
         """ Run image analysis """
         
@@ -221,6 +233,14 @@ class HelperTab2(QWidget):
         self.stop_button.setStyleSheet("background-color: red; color: white")
         
         self.current_analysis_index = 0
+
+        # save parameter analysis
+        filepath = Path(self.folders_to_analyse[self.current_analysis_index][0]).parents[0]
+        filename = Path("Parameter_analysis.json")
+        json_file = filepath / filename
+        with open(json_file, "w") as f:
+            json.dump(self.settings["table"], f)
+
         self._run_next_folder()
     
     def _read_parameters(self) -> dict:
@@ -257,18 +277,18 @@ class HelperTab2(QWidget):
         
         save_names = Path(folder).parent / Path(f"Particle_analysis_Essai_7_4x10mm3_run_{self.current_analysis_index+1}_freqacq_8000Hz_512_640.csv")
         
-        params = self._read_parameters()
+        # params = self._read_parameters()
         
         self.analyser = func_analysis.ParticleAnalyser(
             parent=self, display_every=self.display_every,
             image_paths=folder,
             name_save_files=save_names,
             do_analysis=True,
-            time_interval=1/params["frequency acquisition"],
-            circularity_threshold=params["circularity thresh"],
-            small_objects=int(params["small objects"]),
-            total_num_workers=int(params["number of CPU"]),
-            num_worker_per_image=int(params["number of CPU per image"]),
+            time_interval=1/8000,  # 1/params["frequency acquisition"],
+            circularity_threshold= [0.2, 1.0],  # params["circularity thresh"],
+            small_objects=20,  # int(params["small objects"]),
+            total_num_workers=10,  # int(params["number of CPU"]),
+            num_worker_per_image=1,  # int(params["number of CPU per image"]),
             )
         self.worker = self.analyser
         

@@ -74,10 +74,8 @@ class ParticleAnalyser:
         
         do_plot = False
         
-        circ_thresh = params["circularity thresh"]
-        is_subpixel = params["enable subpixel detection"]
-        invert_grayscale = params["invert grayscale"]
-        h_maxima_value = params["h maxima"]
+        circ_thresh = params["circularity_thresh"]
+        is_subpixel = params["subpixel"]
         
         img_raw = Image.open(filename)
         img_raw = np.array(img_raw)
@@ -91,7 +89,7 @@ class ParticleAnalyser:
             plt.show()
         
         img = img_raw
-        if invert_grayscale:
+        if params["invert_gray"]:
             img_gray = ImageOps.invert(Image.fromarray(img).convert("L"))
         else: img_gray = Image.fromarray(img_raw).convert("L")
         img_gray = np.array(img_gray, dtype=np.uint8)
@@ -134,7 +132,10 @@ class ParticleAnalyser:
             ax.set_title("DISTANCE")
             plt.show()
         
-        mask = morphology.h_maxima(distance, h=h_maxima_value)
+        try:
+            mask = morphology.h_maxima(distance, h=float(params["h_max"]))
+        except:
+            print(f"h maxima value not appropriate")
         if do_plot:
             _, ax = plt.subplots()
             ax.imshow(mask, cmap="gray")
@@ -212,10 +213,11 @@ class ParticleAnalyser:
         
     def _postprocess_binary(self, binary, params, chkbx):
         """ Apply binary cleaning : holes, border and small objects"""
+        
         if chkbx["fill_holes"]:
             binary = binary_fill_holes(binary)
         if chkbx["remove_small"]:
-            min_size = int(params.get("small objects"))
+            min_size = int(params.get("small_objects"))
             binary = morphology.remove_small_objects(binary, min_size)
         if chkbx["clear_border"]:
             binary = clear_border(binary)
@@ -363,6 +365,9 @@ class ImageViewer:
     def __init__(self, parent, pixel_size):
         
         self.parent = parent
+
+        if self.parent.layout() is None:
+            self.parent.setLayout(QVBoxLayout())
         self.layout = self.parent.layout()
 
         self.pixel_size = pixel_size
@@ -596,24 +601,22 @@ class ViewerWorker(QObject):
     
     finished = pyqtSignal(np.ndarray, pd.DataFrame)
     
-    def __init__(self, image, data, rotation_value):
+    def __init__(self, image, data, rotation):
         super().__init__()
         
         self.image = image
         self.data = data
-        self.rotation_value = rotation_value
+        self.rotation = rotation
         
     def run(self):
         
-        img_rot = self._apply_rotation(self.image, self.rotation_value)
+        img_rot = self._apply_rotation(self.image, self.rotation)
         self.finished.emit(img_rot, self.data)
     
     def _apply_rotation(self, img, rotation):
         """ Rotate image """
-        
-        rotations = {"NONE": 0, "ROTATE_90": 1, "ROTATE_180": 2, "ROTATE_270": 3}
-        k = rotations.get(rotation, 0)
-        return np.rot90(img, k)
+
+        return np.rot90(img, rotation%90)
 
 class Spinner(QWidget):
     
@@ -630,6 +633,7 @@ class Spinner(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._rotate)
         self.hide()
+        self.added_to_layout = False
     
     def start(self):
         self.show()
