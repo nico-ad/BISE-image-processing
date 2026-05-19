@@ -636,7 +636,7 @@ class ParticleAnalyser(QObject):
             if isinstance(list_images, str):
                 list_images = [list_images]
 
-            self.list_images = list_images[:100]
+            self.list_images = list_images  # [:100]
 
             if output_path.exists():
                 print(f"File {output_path.name} already exists in {output_path.parent}")
@@ -1467,8 +1467,8 @@ class ParticleAnalyser(QObject):
     def Assign_ID_ROI(
         dataframe: pd.DataFrame = None,
         max_dist: int = 10,  # search radius in px
-        do_plot: bool = True,
-    ):
+        do_plot: bool = False,
+    ) -> pd.DataFrame :
         """ Assign IDs to particles based on a frame-to-frame tracking """
 
         df = dataframe.copy()

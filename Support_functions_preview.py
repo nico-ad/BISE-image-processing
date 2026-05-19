@@ -57,7 +57,12 @@ class ParticleAnalyser:
     def __init__(self, parent=None):
         self.parent = parent
 
-    def _apply_image_modifications(self, filename: str, params: dict, chkbx: dict):
+    def _apply_image_modifications(
+            self,
+            filename: str,
+            params: dict,
+            chkbx: dict,
+            ) -> pd.DataFrame:
         
         """
         Apply modification on image and extract particles
@@ -73,10 +78,7 @@ class ParticleAnalyser:
         """
         
         do_plot = False
-        
-        circ_thresh = params["circularity_thresh"]
-        is_subpixel = params["subpixel"]
-        
+
         img_raw = Image.open(filename)
         img_raw = np.array(img_raw)
         if img_raw.ndim == 2:
@@ -89,7 +91,7 @@ class ParticleAnalyser:
             plt.show()
         
         img = img_raw
-        if params["invert_gray"]:
+        if params["invert_gray"] or True:
             img_gray = ImageOps.invert(Image.fromarray(img).convert("L"))
         else: img_gray = Image.fromarray(img_raw).convert("L")
         img_gray = np.array(img_gray, dtype=np.uint8)
@@ -133,9 +135,9 @@ class ParticleAnalyser:
             plt.show()
         
         try:
-            mask = morphology.h_maxima(distance, h=float(params["h_max"]))
+            mask = morphology.h_maxima(distance, h=params["h_max"])
         except:
-            print(f"h maxima value not appropriate")
+            print("h maxima value not correct")
         if do_plot:
             _, ax = plt.subplots()
             ax.imshow(mask, cmap="gray")
@@ -155,8 +157,14 @@ class ParticleAnalyser:
             ax.imshow(labeled_image, cmap="gray")
             ax.set_title("WATERSHED")
             plt.show()
-        
-        all_data = self._extract_particle_data(labeled_image, img, circ_thresh, filename.parent, False)
+
+        all_data = self._extract_particle_data(
+            labeled_image,
+            img,
+            params["circularity_thresh"],
+            filename.parent,
+            params["subpixel"],
+            )
         
         # visual identification
         if chkbx["identify_part"]:
@@ -223,8 +231,15 @@ class ParticleAnalyser:
             binary = clear_border(binary)
         return binary
     
-    def _extract_particle_data(self, labeled_image, intensity_image, circ_thresh,
-                               img_name, is_subpixel) -> pd.DataFrame:
+    def _extract_particle_data(
+            self,
+            labeled_image,
+            intensity_image,
+            circ_thresh,
+            img_name,
+            is_subpixel,
+            ) -> pd.DataFrame:
+        
         """ Extract particles properties from segmented image """
         
         self.start_frame = 0
@@ -361,16 +376,15 @@ class ParticleAnalyser:
                     img_raw[y, x] = [255, 0, 0]
         return img_raw
 
-class ImageViewer:
-    def __init__(self, parent, pixel_size):
-        
+class ImageViewer(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
         self.parent = parent
 
         if self.parent.layout() is None:
             self.parent.setLayout(QVBoxLayout())
         self.layout = self.parent.layout()
-
-        self.pixel_size = pixel_size
         
         self.canvases = []
         self.toolbars = []
@@ -443,13 +457,15 @@ class ImageViewer:
     def clear(self):
         for canvas in self.canvases:
             self.layout.removeWidget(canvas)
-            canvas.setParent(None)
-            canvas.deleteLater()
+            canvas.hide()
+            # canvas.setParent(None)
+            # canvas.deleteLater()
         
         for toolbar in self.toolbars:
             self.layout.removeWidget(toolbar)
-            toolbar.setParent(None)
-            toolbar.deleteLater()
+            toolbar.hide()
+            # toolbar.setParent(None)
+            # toolbar.deleteLater()
         
         self.canvases.clear()
         self.toolbars.clear()
@@ -458,7 +474,8 @@ class ImageViewer:
         self,
         img: np.ndarray = None,
         data: pd.DataFrame = None,
-    ):
+        pixel_size: float = None,
+    ) -> None :
         
         fig = Figure()
         ax = fig.add_subplot(111)
@@ -466,19 +483,21 @@ class ImageViewer:
         ax.imshow(img, cmap="gray", aspect="auto")
         ax.set_aspect("equal", adjustable="box")
 
-        ax.scatter(data["x"], data["y"], color="tab:orange")
+        # display data
+        if data is not None and not data.empty:
+            ax.scatter(data["x"], data["y"], color="tab:orange")
         
+        # format x ticks and label
         x_ticks = ax.get_xticks()[1:-1]
-        y_ticks = ax.get_yticks()[1:-1]
-        
         ax.set_xticks(x_ticks)
-        ax.set_yticks(y_ticks)
-        
         ax.set_xlabel("X [mm]", fontsize=self.dict_fontsize["label"])
+        ax.set_xticklabels([f"{x_tick * pixel_size:.2f}" for x_tick in x_ticks], fontsize=self.dict_fontsize["ticks"])
+
+        # format y ticks and label
+        y_ticks = ax.get_yticks()[1:-1]
+        ax.set_yticks(y_ticks)
         ax.set_ylabel("Y [mm]", fontsize=self.dict_fontsize["label"])
-        
-        ax.set_xticklabels([f"{x_tick*self.pixel_size:.2f}" for x_tick in x_ticks], fontsize=self.dict_fontsize["ticks"])
-        ax.set_yticklabels([f"{y_tick*self.pixel_size:.2f}" for y_tick in y_ticks], fontsize=self.dict_fontsize["ticks"])
+        ax.set_yticklabels([f"{y_tick * pixel_size:.2f}" for y_tick in y_ticks], fontsize=self.dict_fontsize["ticks"])
         
         fig.tight_layout()
         
@@ -486,7 +505,7 @@ class ImageViewer:
         canvas.setMinimumSize(0, 0)
         canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         canvas.updateGeometry()
-        toolbar = NavigationToolbar(canvas, self.parent)
+        toolbar = NavigationToolbar(canvas, canvas) # self.parent)
         
         status_label = QLabel()
         toolbar.addWidget(status_label)
@@ -610,13 +629,8 @@ class ViewerWorker(QObject):
         
     def run(self):
         
-        img_rot = self._apply_rotation(self.image, self.rotation)
+        img_rot = np.rot90(self.image, self.rotation % 4)
         self.finished.emit(img_rot, self.data)
-    
-    def _apply_rotation(self, img, rotation):
-        """ Rotate image """
-
-        return np.rot90(img, rotation%90)
 
 class Spinner(QWidget):
     
@@ -633,7 +647,6 @@ class Spinner(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._rotate)
         self.hide()
-        self.added_to_layout = False
     
     def start(self):
         self.show()
@@ -653,10 +666,10 @@ class Spinner(QWidget):
         
         for i in range(12):
             color = QColor(100, 100, 100)
-            color.setAlpha(int((i + 1) / 12) * 255)
+            color.setAlpha(int((i + 1) / 12 * 255))
             painter.setPen(Qt.NoPen)
             painter.setBrush(color)
-            
+
             painter.save()
             painter.translate(self.width() / 2, self.height() / 2)
             painter.rotate(self.angle + i * 30)
@@ -1616,5 +1629,3 @@ class VideoMaker(QObject):
 
         video_writer.release()
         self.finished.emit()
-
-        # print("Videos created")

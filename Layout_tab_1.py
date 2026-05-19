@@ -102,7 +102,6 @@ class HelperTab1(QWidget):
         
         self.analyser_class = func_preview.ParticleAnalyser(parent=self)
         self.video_Maker = func_preview.VideoMaker()
-        # self.spinner = func_preview.Spinner(parent=self)
         
         self.parent.dial_steps = [1, 10, 100, 1000, 10000]
         
@@ -150,13 +149,6 @@ class HelperTab1(QWidget):
         self.parent.load_folders_names.horizontalHeader().setFont(self.parent.font_header)
         self.parent.load_folders_names.setColumnWidth(0, 250)
         
-        # # ----- save files table
-        # self.parent.save_name_files = QTableWidget(tab_1)
-        # self.parent.save_name_files.setColumnCount(1)
-        # self.parent.save_name_files.setHorizontalHeaderLabels(["Select files"])
-        # self.parent.save_name_files.horizontalHeader().setFont(self.parent.font_header)
-        # self.parent.save_name_files.setColumnWidth(0, 250)
-        
         # ----- Data group
         data_group = QGroupBox("Image file selection")
         data_group_layout = QVBoxLayout()
@@ -165,15 +157,15 @@ class HelperTab1(QWidget):
             QGroupBox {
             background-color: rgba(255, 255, 255, 0.85);
             border: 2px solid #AAAAAA;
-            border-radius: 15;
+            border-radius: 15px;
             margin-top: 10px;
             font-weight: bold;
             font-size: 14px;
             padding: 10px;
             }
-            QGroupBow::title {
+            QGroupBox::title {
             subcontrol-origin: margin;
-            subcontrol-position: top corner;
+            subcontrol-position: top left;
             padding: 0 3px;
             }
         """)
@@ -186,7 +178,6 @@ class HelperTab1(QWidget):
         
         # folder tables
         data_group_layout.addWidget(self.parent.load_folders_names)
-        # data_group_layout.addWidget(self.parent.save_name_files)
         
         # buttons
         self.add_folders_btn = QPushButton("Add folders")
@@ -210,15 +201,15 @@ class HelperTab1(QWidget):
             QGroupBox {
             background-color: rgba(255, 255, 255, 0.85);
             border: 2px solid #AAAAAA;
-            border-radius: 15;
+            border-radius: 15px;
             margin-top: 10px;
             font-weight: bold;
             font-size: 14px;
             padding: 10px;
             }
-            QGroupBow::title {
+            QGroupBox::title {
             subcontrol-origin: margin;
-            subcontrol-position: top corner;
+            subcontrol-position: top left;
             padding: 0 3px;
             }
         """)
@@ -321,15 +312,15 @@ class HelperTab1(QWidget):
             QGroupBox {
             background-color: rgba(255, 255, 255, 0.85);
             border: 2px solid #AAAAAA;
-            border-radius: 15;
+            border-radius: 15px;
             margin-top: 10px;
             font-weight: bold;
             font-size: 14px;
             padding: 10px;
             }
-            QGroupBow::title {
+            QGroupBox::title {
             subcontrol-origin: margin;
-            subcontrol-position: top corner;
+            subcontrol-position: top left;
             padding: 0 3px;
             }
         """)
@@ -369,18 +360,35 @@ class HelperTab1(QWidget):
         # ==========
         workspace = QWidget()
         workspace_layout = QVBoxLayout(workspace)
-        # workspace.setLayout(workspace_layout)
         workspace_layout.setSpacing(15)
         
         # ----- preview area
         preview_splitter = QSplitter(Qt.Horizontal)
+        workspace_layout.addWidget(preview_splitter)
         
-        # image preview
+        # ----- image preview
         image_group = QGroupBox("Image preview")
         image_group_layout = QVBoxLayout()
         image_group.setLayout(image_group_layout)
+        preview_splitter.addWidget(image_group)
+        image_group.setStyleSheet("""
+            QGroupBox {
+            background-color: rgba(255, 255, 255, 0.85);
+            border: 2px solid #AAAAAA;
+            border-radius: 15px;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 14px;
+            padding: 10px;
+            }
+            QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 0 3px;
+            }
+        """)
         
-        # image name
+        # ----- image name
         self.image_name = QLineEdit()
         self.image_name.setText("Image name")
         self.image_name.setReadOnly(True)
@@ -394,25 +402,37 @@ class HelperTab1(QWidget):
         self.image_layout = QVBoxLayout(self.image_preview_container)
         image_group_layout.addWidget(self.image_preview_container)
 
-        # intanciate image_viewer
-        self.image_viewer = func_preview.ImageViewer(
-            self.image_preview_container,
-            pixel_size=None,
-            )
+        # intantiate image_viewer
+        self.image_viewer = func_preview.ImageViewer(parent=image_group)
+        image_group_layout.addWidget(self.image_viewer, alignment=Qt.AlignCenter)  # attach spinner to container
+        self.image_viewer.hide()
 
-        # # spinner
-        # self.spinner = func_preview.Spinner(parent=self.image_preview_container)
-        # self.image_layout.addWidget(self.spinner, alignment=Qt.AlignCenter)  # attach spinner to container
-        # self.spinner.hide()
-
-        # ImageViewer
-        self.viewer = None
+        # instantiate spinner
+        self.spinner = func_preview.Spinner(parent=image_group)
+        image_group_layout.addWidget(self.spinner, alignment=Qt.AlignCenter)  # attach spinner to container
+        self.spinner.hide()
         
-        # sizing preview
+        # ----- sizing preview
         sizing_group = QGroupBox("Grain sizing")
         self.sizing_preview_container = QWidget()
         sizing_group_layout = QVBoxLayout(self.sizing_preview_container)
         sizing_group.setLayout(sizing_group_layout)
+        sizing_group.setStyleSheet("""
+            QGroupBox {
+            background-color: rgba(255, 255, 255, 0.85);
+            border: 2px solid #AAAAAA;
+            border-radius: 15px;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 14px;
+            padding: 10px;
+            }
+            QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 0 3px;
+            }
+        """)
         
         self.sizing_title = QLineEdit("Particle distribution")
         self.sizing_title.setReadOnly(True)
@@ -428,11 +448,6 @@ class HelperTab1(QWidget):
         
         preview_splitter.addWidget(image_group)
         preview_splitter.addWidget(sizing_group)
-        
-        # # add workspace widgets
-        # workspace_layout.addWidget(param_group)
-        # workspace_layout.addWidget(checkbox_group)
-        # workspace_layout.addWidget(preview_splitter, 1)
         
         # ==========
         # ADD TO MAIN SPLITTER
@@ -528,10 +543,7 @@ class HelperTab1(QWidget):
         self.folders_changed.emit(self.parent.folders_list)
         self.files_changed.emit(self.parent.files_list)
 
-        # ----- enable buttons
-        has_folders = len(self.parent.folders_list) > 0
-        self.preview_btn.setEnabled(has_folders)
-        self.change_folder_btn.setEnabled(has_folders)
+        self._update_buttons_state()
         
     def _remove_folders(self):
         """" Remove folders from list"""
@@ -574,23 +586,20 @@ class HelperTab1(QWidget):
                 self.parent.folders.append(folder)
         self.num_folders = len(self.parent.folders)
 
-
     def _handle_parameters_and_display(self, settings):
         self.settings = settings
-        # print("Updated settings")
-        # print(f"    Table ssettings : {self.settings[0]}")
-        # print(f"    Checkboxes ssettings : {self.settings[1]}")
 
-    def _option_dialog(self):
+    def _option_dialog(self) -> None :
         """ open dialog window """
         
-        # self.helper2 = Layout_tab_2.HelperTab2(parent=self.parent)
         dialog = OptionDialog(self, settings=self.settings, fonts=self.parent.fonts)
         dialog.settings_applied.connect(self.parent.helper_tab_2._handle_settings)
         dialog.settings_applied.connect(self._handle_parameters_and_display)
         dialog.exec_()
 
-    def _previewAnalysis(self):
+        self._update_buttons_state()
+
+    def _previewAnalysis(self) -> None:
         """ load and display preview image """
         
         if hasattr(self, "settings"):
@@ -599,46 +608,30 @@ class HelperTab1(QWidget):
             self.parent.current_image_index = 0
             self._display_current_folder_image()
     
-    def _display_current_folder_image(self):
+    def _display_current_folder_image(self) -> None:
         """ Load, analyse and display current image of selected folder """
         
-        if not bool(self.parent.folders):
-            self._reset_image_ui()
+        if not self.parent.folders or not self._load_current_folder_files():
+            self._update_buttons_state()
+            print("No images in current folder")
             return
         
-        if not self._load_current_folder_files():
-            self._reset_image_preview()
+        if not self.check_image_exists():
+            self._update_buttons_state()
+            print("Image does not exists")
             return
-        
-        if not self._load_current_image_path():
-            self._reset_image_preview()
-            return
-        
-        self.pixel_size = self.settings["table"]["pixel_size"]
         
         self._analyse_image()
         self._update_viewer()
         self._update_statistics()
         self._update_buttons_state()
-        
-    def _reset_image_ui(self):
-        """ Reset image UI """
-        
-        self.image_path.clear()
-        self.image_preview.clear()
-        self.preview_analysis.setEnabled(False)
-        self.change_folder.setEnabled(False)
-        self.next_image.setEnabled(False)
-        self.previous_image.setEnabled(False)
-        
-    def _reset_image_preview(self):
-        """ Reset image preview """
-        
-        self.image_preview.clear()
-        self._update_buttons_state()
     
-    def _load_current_folder_files(self):
-        """ Load images names from folders """
+    def _load_current_folder_files(self) -> bool :
+        """ Load images names from folders and check format """
+
+        if not self.parent.folders:
+            self.parent.files = []
+            return False
         
         folder_path = Path(self.parent.folders[self.parent.current_folder_index])
         self.valid_format = {".png", ".jpg", ".jpeg", ".tif", ".tiff"}
@@ -650,8 +643,12 @@ class HelperTab1(QWidget):
         
         return bool(self.parent.files)
         
-    def _load_current_image_path(self):
+    def check_image_exists(self) -> bool :
         """ Check if image exists """
+
+        if not self.parent.files:
+            self.parent.image_path = None
+            return False
         
         self.parent.current_image_index = min(self.parent.current_image_index, len(self.parent.files) - 1)
         self.parent.image_path = self.parent.files[self.parent.current_image_index]
@@ -669,96 +666,148 @@ class HelperTab1(QWidget):
     def _update_viewer(self):
         """ Process image preview on another thread """
         
-        rotation_value = self.settings["table"]["rotate"]
-        image_to_process = self.analysed_image
-        data_to_process = self.data
+        # ----- display spinner
+        self.spinner.start()
         
-        # display spinner
-        # self.spinner.start()
-        # self.image_display.hide() # hide image during analysis
+        # ----- analyse image in secondary thread
         
-        self._get_or_create_viewers()
-        
+        # create thread and worker
         self.viewer_thread = QThread()
         self.viewer_worker = func_preview.ViewerWorker(
-            image_to_process, data_to_process, rotation=rotation_value,
+            self.analysed_image,
+            self.data,
+            rotation=self.settings["table"]["rotate"],
             )
         self.viewer_worker.moveToThread(self.viewer_thread)
         
+        # execute run function
         self.viewer_thread.started.connect(self.viewer_worker.run)
-        self.viewer_worker.finished.connect(self._on_viewer_ready)
+
+        # connect to secondary thread results to main thread
+        self.viewer_worker.finished.connect(
+            lambda img, data: self.image_viewer.add_img(
+                img,
+                data,
+                pixel_size=self.settings["table"]["pixel_size"],
+            )
+        )
+        # display image
+        self.viewer_worker.finished.connect(self._on_worker_finished)
+
+        # clean thread and worker
         self.viewer_worker.finished.connect(self.viewer_thread.quit)
         self.viewer_worker.finished.connect(self.viewer_worker.deleteLater)
         self.viewer_thread.finished.connect(self.viewer_thread.deleteLater)
         
         self.viewer_thread.start()
     
-    def _on_viewer_ready(self, img_rot, hist):
-    # def _on_viewer_ready(self, pixmap_or_data):
+    def _on_worker_finished(self, img_rot, data):
         """ Display images preview """
         
-        # if self.spinner.parent() is not None:
-        #     self.spinner.stop()
-        
-        self.image_viewer.clear()
-        self.image_viewer.add_img(img_rot, self.data)
+        if self.spinner.parent() is not None:
+            self.spinner.stop()
 
-        # img = pixmap_or_data.get("image", None)
-        # data = pixmap_or_data.get("data", None)
-        # if img is None and data is not None:
-        #     self.viewer.add_img(img=img, data=data)
+            if hasattr(self, "image_viewer"):
+                self.image_viewer.clear()
+                self.image_viewer.add_img(
+                    img_rot,
+                    self.data,
+                    self.settings["table"]["pixel_size"],
+                    )
         
-        if not hasattr(self, "histogram_viewer"):
-            self.histogram_viewer = func_preview.HistogramViewer(parent=self.sizing_preview_container, pixel_size=self.pixel_size)
-            self.sizing_preview_layout.addWidget(self.histogram_viewer)
-        else:
-            self.histogram_viewer._draw_histogram()
-        diameters = self.data["diameter"].to_numpy()
-        if diameters.size > 0:
-            self.histogram_viewer._set_data(diameters)
+        # if not hasattr(self, "histogram_viewer"):
+        #     self.histogram_viewer = func_preview.HistogramViewer(parent=self.sizing_preview_container)
+        #     self.sizing_preview_layout.addWidget(self.histogram_viewer)
+        # else:
+        #     self.histogram_viewer._draw_histogram()
+        # diameters = self.data["diameter"].to_numpy()
+        # if diameters.size > 0:
+        #     self.histogram_viewer._set_data(diameters)
         
-    def _get_or_create_viewers(self):
-        """ Display images """
+    # def _get_or_create_viewers(self):
+    #     """ Display images """
+
+    #     if not hasattr(self, "image_preview_container") or self.image_preview_container is None:
+    #         raise RuntimeError("image_preview_container must be set before creating ImageViewer")
         
-        if not hasattr(self, "image_viewer"):
-            self.image_viewer = func_preview.ImageViewer(self.image_preview_container, pixel_size=self.pixel_size)
-        else:
-            self.image_viewer.clear()
+    #     layout = self.image_preview_container.layout()
+    #     if layout is None:
+    #         layout = QVBoxLayout()
+    #         self.image_preview_container.setLayout(layout)
+
+    #     if hasattr(self, "image_viewer"):
+    #         self.image_viewer.clear()
+
+    #     else:
+    #         self.image_viewer = func_preview.ImageViewer(
+    #             parent=self.image_preview_container,
+    #             pixel_size=self.settings["table"]["pixel_size"],
+    #         )
+    #         layout.addWidget(self.image_viewer)
+        
+    #     # if not hasattr(self, "image_viewer"):
+    #     #     self.image_viewer = func_preview.ImageViewer(self.image_preview_container, pixel_size=self.settings["table"]["pixel_size"])
+    #     # else:
+    #     #     self.image_viewer.clear()
             
-        if not hasattr(self, "sizing_viewer"):
-            self.sizing_viewer = func_preview.ImageViewer(self.sizing_preview_container, pixel_size=self.pixel_size)
-        else:
-            self.sizing_viewer.clear()
+    #     # if not hasattr(self, "sizing_viewer"):
+    #     #     self.sizing_viewer = func_preview.ImageViewer(self.sizing_preview_container, pixel_size=self.pixel_size)
+    #     # else:
+    #     #     self.sizing_viewer.clear()
     
     def _update_statistics(self):
         """ Update statistics """
         
         num_part = len(self.data)
-        density = num_part / (np.prod(self.base_image.shape) * self.pixel_size**2)
+        density = num_part / (np.prod(self.base_image.shape) * self.settings["table"]["pixel_size"]**2)
         
         self.num_part_per_frame.setText(f"{num_part:d} particles detected")
         self.density_per_frame.setText(f"Particles density {density:.3f} mm^-2")
         
-    def _update_buttons_state(self):
-        self.previous_btn.setEnabled(self.parent.current_image_index > 0)
-        self.next_btn.setEnabled(self.parent.current_image_index < len(self.parent.files) - 1)
-        self.change_folder_btn.setEnabled(len(self.parent.files) > 1)
+    def _update_buttons_state(self) -> None:
+        """ Enable/ desable buttons """
 
-    def _changeFolder(self):
+        # has_files = bool(self.parent.files)
+        has_folders = len(self.parent.folders_list) > 0
+        condition = has_folders and (self.settings is not None)
+
+        if condition:
+            self.preview_btn.setEnabled(condition)
+            self.change_folder_btn.setEnabled(condition)
+            self.video_btn.setEnabled(condition)
+            self.previous_btn.setEnabled(condition and self.parent.current_image_index > 0)
+            self.next_btn.setEnabled(condition and self.parent.current_image_index < len(self.parent.files) - 1)
+            self.change_folder_btn.setEnabled(condition and len(self.parent.files) > 1)
+
+    def _changeFolder(self) -> None :
+        """ Change folder """
+
         if len(self.parent.files) > 1:
             self.parent.current_folder_index = (self.parent.current_folder_index + 1) % len(self.parent.folders)
             self.parent.current_image_index = 0
             self._display_current_folder_image()
 
-    def _nextImage(self):
+    def _nextImage(self) -> None :
+        """ Change preview image """
+
+        if not self.parent.files:
+            return
+
         step = self.parent.dial_steps[self.change_magnitude.value()]
+        
         if self.parent.current_image_index + step < len(self.parent.files):
             self.parent.current_image_index += step
+        
         else:
             self.parent.current_image_index = len(self.parent.files) - 1
         self._display_current_folder_image()
 
-    def _previousImage(self):
+    def _previousImage(self) -> None :
+        """ Change step image to preview """
+
+        if not self.parent.files:
+            return
+
         step = self.parent.dial_steps[self.change_magnitude.value()]
         if self.parent.current_image_index - step >= 0:
             self.parent.current_image_index -= step
@@ -783,7 +832,7 @@ class HelperTab1(QWidget):
             params=self.current_params, chkbx=self.params_chkbx,
         )
         self.image_viewer.clear()
-        self.image_viewer.add_img(self._apply_rotation(self.analysed_image, rotation_value))
+        self.image_viewer.add_img(self.image_viewer.run(self.analysed_image, rotation_value))
         
         # self.density_viewer.clear()
         # self.density_viewer.add_density(self._apply_rotation(self.surface_image, rotation_value))
@@ -792,32 +841,7 @@ class HelperTab1(QWidget):
 
     def _on_item_changed(self, item):
         if item.column() == 1:
-            # self.parent.parameters_table_tab_1.blockSignals(True)
-            # item.setData(Qt.UserRole, item.text())
-            # self.parent.parameters_table_tab_1.blockSignals(False)
             self._updatePreview()
-
-    # def _read_parameters(self) -> dict:
-    #     """ Read table of parameters for image analysis """
-        
-    #     current_params = {}
-    #     for row in range(self.parent.parameters_table_tab_1.rowCount()):
-    #         # first column
-    #         key = self.parent.parameters_table_tab_1.item(row, 0).text()
-    #         # second column
-    #         widget = self.parent.parameters_table_tab_1.cellWidget(row, 1)
-    #         if isinstance(widget, QComboBox):
-    #             value = widget.currentText()
-    #         else:
-    #             item = self.parent.parameters_table_tab_1.item(row, 1)
-    #             value = item.text() # item.data(Qt.UserRole)
-    #         try:
-    #             value = ast.literal_eval(value)
-    #         except (ValueError, SyntaxError):
-    #             pass
-            
-    #         current_params[key] = value
-    #     return current_params
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -849,7 +873,7 @@ class HelperTab1(QWidget):
         """ Start video creation """
 
         # set viceo frequency
-        freq_acq = self._read_parameters()["frequency acquisition"]
+        freq_acq = self.settings["table"]["acq_frequency"]
         
         # desabled button
         if self.current_index >= len(self.folders):
@@ -867,7 +891,6 @@ class HelperTab1(QWidget):
         self.thread = QThread()
 
         # creat VideoMaker instance
-        # self.worker = self.video_Maker
         self.worker = func_preview.VideoMaker()
 
         # move worker to thread
@@ -905,7 +928,6 @@ class HelperTab1(QWidget):
 
         self.current_index += 1
         self._start_next_video()
-        
 
 class OptionDialog(QDialog):
 
@@ -915,11 +937,14 @@ class OptionDialog(QDialog):
     def __init__(self, parent=None, settings=None, fonts=None):
         super().__init__(parent)
 
-        if not isinstance(settings, list) or len(settings) != 2:
-            settings = [{}, {}]
-        for i in [0, 1]:
-            if not isinstance(settings[i], dict):
-                settings[i] = {}
+        
+        if not isinstance(settings, dict):
+            settings  = {"table": {}, "checkboxes": {}}
+        else:
+            if "table" not in settings or not isinstance(settings["table"], dict):
+                settings["table"] = {}
+            if "checkboxes" not in settings or not isinstance(settings["checkboxes"], dict):
+                settings["checkboxes"] = {}
         self.settings = settings
 
         self.fonts = fonts
@@ -991,7 +1016,7 @@ class OptionDialog(QDialog):
             self.table.setItem(i, 0, item_label)
 
             # use existing value
-            existing_value = self.settings[0].get(key, default_value)
+            existing_value = self.settings["table"].get(key, default_value)
             
             # parameter value
             if options:
@@ -1045,7 +1070,7 @@ class OptionDialog(QDialog):
         self.checkboxes = {}
         for key, label, default, toolTip in checkboxes_info:
             chk = QCheckBox(label, parent=checkbox_group)
-            chk.setChecked(self.settings[1].get(key, default))
+            chk.setChecked(self.settings["checkboxes"].get(key, default))
             chk.setToolTip(toolTip)
             self.checkboxes[key] = chk
             params_chkbx_layout.addWidget(chk)
@@ -1082,13 +1107,16 @@ class OptionDialog(QDialog):
         elif dtype is list:
             try:
                 value = value.strip("[]")
+                
                 if not value:
                     return []
                 items = [it.strip() for it in value.split(",")]
                 converted_items = []
+                
                 for it in items:
                     converted_items.append(float(it) if "." in it else int(it))
                 return converted_items
+            
             except Exception:
                 return default
         return value
@@ -1103,11 +1131,18 @@ class OptionDialog(QDialog):
         for row in range(self.table.rowCount()):
 
             key = self.default_params[row][1]
-            raw_value = self.default_params[row][2]
+            # raw_value = self.default_params[row][2]
             cell_widget = self.table.cellWidget(row, 1)
             dtype = self.default_params[row][5]
+            default_value = self.default_params[row][2]
+
+            if isinstance(cell_widget, QComboBox):
+                raw_value = cell_widget.currentText()
+            else:
+                item = self.table.item(row, 1)
+                raw_value = item.text() if item else self.default_params[row][2]
             
-            table_values[key] = self._convert_value(raw_value, dtype, raw_value)
+            table_values[key] = self._convert_value(raw_value, dtype, default_value)
         
         # emit signal
         settings = {
