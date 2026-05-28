@@ -134,10 +134,7 @@ class ParticleAnalyser:
             ax.set_title("DISTANCE")
             plt.show()
         
-        try:
-            mask = morphology.h_maxima(distance, h=params["h_max"])
-        except:
-            print("h maxima value not correct")
+        mask = morphology.h_maxima(distance, h=params["h_max"])
         if do_plot:
             _, ax = plt.subplots()
             ax.imshow(mask, cmap="gray")

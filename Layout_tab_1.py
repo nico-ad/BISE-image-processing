@@ -623,6 +623,7 @@ class HelperTab1(QWidget):
         
         self._analyse_image()
         self._update_viewer()
+        self._update_image_name()
         self._update_statistics()
         self._update_buttons_state()
     
@@ -778,6 +779,11 @@ class HelperTab1(QWidget):
             self.previous_btn.setEnabled(condition and self.parent.current_image_index > 0)
             self.next_btn.setEnabled(condition and self.parent.current_image_index < len(self.parent.files) - 1)
             self.change_folder_btn.setEnabled(condition and len(self.parent.files) > 1)
+
+    def _update_image_name(self) -> None:
+        """ Update image name """
+
+        self.image_name.setText(f"{Path(self.parent.files[self.parent.current_image_index]).name}")
 
     def _changeFolder(self) -> None :
         """ Change folder """
@@ -964,6 +970,7 @@ class OptionDialog(QDialog):
             ("Video sequence", "video_seq", True, "", [True, False], bool),
             ("Rotate image", "rotate", "0", "", ["0", "90", "180", "270"], int),
             ("H maxima", "h_max", 0.01, "", None, float),
+            ("Labelisation distance", "lbl_dist", 20, "px", None, int)
         ]
 
         # combo boxes
