@@ -45,6 +45,7 @@ from pathlib import Path
 import csv
 import os
 
+import matplotlib as mpl
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -548,6 +549,11 @@ class HelperTab4(QWidget):
             self.settings = self.function_map[name]["settings"]
 
             print(self.func.__name__)
+            # print(self.settings.x_axis, self.settings.y_axis)
+
+            # import json
+            # with open(self.parent.files_list_dataframe[0] / Path("Parameter_analysis.json"), "r") as file:
+            #     parameters = json.load(file)
 
             if self.func:
                 data_list = self.func(
@@ -555,6 +561,7 @@ class HelperTab4(QWidget):
                     pixel_size=self.data_to_plot["pixel_size"],
                     frames=self.data_to_plot["frames"],
                     labels=self.data_to_plot["labels"],
+                    time_interval=1/8000, # 1/parameters["acq_frequency"],
                     x_unit=self.settings.x_axis,
                     y_unit=self.settings.y_axis,
                     velocity=self.velocity_profile if self.velocity_profile else None,
@@ -708,7 +715,7 @@ class ImageViewer(QWidget):
 
         self._clear()
 
-        self.fig = Figure()
+        self.fig = Figure(figsize=(4, 4), dpi=150)
 
         for ii, data in enumerate(data_list):
             if not data:
@@ -729,6 +736,8 @@ class ImageViewer(QWidget):
             else:
                 msg = "No key word detected"
                 raise ValueError(msg)
+            
+            self._format_axes(data)
 
     def plot_1d(self, data_dict: dict):
         """Display 1d graph"""
@@ -952,6 +961,10 @@ class ImageViewer(QWidget):
         data_y_all = []
         data_z_all = []
 
+        print(f"Coord number {data_dict['x']}")
+        print(f"Occurence : {data_dict['y']} ({sum[data_dict['y']]})")
+        print(f"Time : {data_dict['z']}")
+
         for i in range(len(data_dict["x"])):
             x = np.array(data_dict["x"][i] * data_dict["x_unit"])[:-1] - 0.5
             y = np.array(data_dict["y"][i] * data_dict["y_unit"])
@@ -1135,9 +1148,10 @@ class ImageViewer(QWidget):
 
         for i in range(n):
             self.ax.plot(
-                data_dict["x"][i] * data_dict["x_unit"],
-                data_dict["y"][i] * data_dict["y_unit"],
+                data_dict["x"][i],
+                data_dict["y"][i],
                 color=colors(i),
+                linewidth=3,
                 label=f"Run {i}"
                 if "run" in data_dict
                 else f"Label {data_dict['label'][i][0]}",
@@ -1154,10 +1168,11 @@ class ImageViewer(QWidget):
             if "velocity_f" in data_dict:
                 if data_dict["velocity_f"] is not None:
                     self.ax.plot(
-                        data_dict["x"][i] * data_dict["x_unit"],
-                        data_dict["velocity_f"][i] * data_dict["y_unit_2"],
+                        data_dict["x"][i],
+                        data_dict["velocity_f"][i],
                         color=colors(i),
-                        alpha=0.5,
+                        linewidth=3,
+                        linestyle="dashed",
                         label=f"Fluid velocity at $r_p({data_dict['label'][i][0]})$",
                     )
 
@@ -1223,19 +1238,6 @@ class ImageViewer(QWidget):
         if "x_log" in data_dict:
             self.ax.set_xscale("symlog")
 
-        # ticks and labels
-        # x_ticks = [0, 1]
-        # self.ax.set_xticks(x_ticks)
-        # self.ax.set_xticklabels([f"{x_tick:.2f}" for x_tick in x_ticks], fontsize=self.dict_fontsize["ticks"])
-        # self.ax.set_xlabel(data_dict["x_label"], fontsize=self.dict_fontsize["label"])
-        # print(x_ticks)
-
-        # y_ticks = self.ax.get_yticks()[1:]
-        # self.ax.set_yticks(y_ticks)
-        # self.ax.set_yticklabels([f"{y_tick:.2f}" for y_tick in y_ticks], fontsize=self.dict_fontsize["ticks"])
-        # self.ax.set_ylabel(data_dict["y_label"], fontsize=self.dict_fontsize["label"])
-        # print(y_ticks)
-
         if "z_label" in data_dict:
             x_ticks = np.linspace(
                 0, np.max(data_dict["x"]) - 1, np.max(data_dict["x"]), dtype=int
@@ -1275,8 +1277,9 @@ class ImageViewer(QWidget):
             # print(z_ticks)
 
         else:
-
-            x_ticks = self.ax.get_xticks()[1:]
+            number_ticks = 5
+            self.ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(number_ticks))
+            x_ticks = self.ax.get_xticks()[1:-1]
             self.ax.set_xticks(x_ticks)
             self.ax.set_xticklabels(
                 self._number_of_ticks(x_ticks, min_decimal=data_dict["min_decimals_x"]),
@@ -1285,9 +1288,9 @@ class ImageViewer(QWidget):
             self.ax.set_xlabel(
                 data_dict["x_label"], fontsize=self.dict_fontsize["label"]
             )
-            # print(x_ticks)
 
-            y_ticks = self.ax.get_yticks()[1:]
+            self.ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(number_ticks))
+            y_ticks = self.ax.get_yticks()[1:-1]
             self.ax.set_yticks(y_ticks)
             self.ax.set_yticklabels(
                 self._number_of_ticks(y_ticks, min_decimal=data_dict["min_decimals_y"]),
@@ -1296,13 +1299,14 @@ class ImageViewer(QWidget):
             self.ax.set_ylabel(
                 data_dict["y_label"], fontsize=self.dict_fontsize["label"]
             )
-            # print(y_ticks)
 
         _, labels_legend = self.ax.get_legend_handles_labels()
         if labels_legend:
             self.ax.legend(fontsize=self.dict_fontsize["legend"])
+        
+        plt.subplots_adjust(0, 0, 1, 1)
 
-    def _number_of_ticks(self, ticks, min_decimal=0):
+    def _number_of_ticks(self, ticks, min_decimal=0, number_ticks=5):
         """Adapt number of ticks"""
 
         inc = min_decimal
@@ -1315,7 +1319,6 @@ class ImageViewer(QWidget):
             unique = np.unique(temp_ticks)
 
         return temp_ticks
-
 
 class SupportFunctions:
     def __init__(self):
@@ -1581,17 +1584,17 @@ class OptionDialog(QDialog):
             self.y_combo.setCurrentIndex(idx)
             tab2_layout.addWidget(self.y_combo)
 
-            # ----- Z options
-            if self.settings.z_axis_options:
-                tab2_layout.addWidget(QLabel("Z axis"))
-                self.z_combo = QComboBox()
-                # add item on combo box
-                for label, value in self.settings.z_axis_options.items():
-                    self.z_combo.addItem(label, value)
-                # set current data
-                idx = self.z_combo.findData(self.settings.y_axis)
-                self.z_combo.setCurrentIndex(idx)
-                tab2_layout.addWidget(self.z_combo)
+            # # ----- Z options
+            # if self.settings.z_axis_options:
+            #     tab2_layout.addWidget(QLabel("Z axis"))
+            #     self.z_combo = QComboBox()
+            #     # add item on combo box
+            #     for label, value in self.settings.z_axis_options.items():
+            #         self.z_combo.addItem(label, value)
+            #     # set current data
+            #     idx = self.z_combo.findData(self.settings.y_axis)
+            #     self.z_combo.setCurrentIndex(idx)
+            #     tab2_layout.addWidget(self.z_combo)
 
             self.x_combo.currentTextChanged.connect(self._update_x)
             self.y_combo.currentTextChanged.connect(self._update_y)

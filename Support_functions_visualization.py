@@ -74,6 +74,9 @@ from joblib import Parallel, delayed
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 import queue as pyqueue
 
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 import warnings
 
 warnings.filterwarnings("ignore", category=OptimizeWarning)
@@ -202,6 +205,7 @@ class VisualizationFunctions:
         df["coordination"] = None
 
         for fr, group in df.groupby("frame"):
+
             # if fr % 2 != 0:
             #     print(f"BAD : {fr}, {fr % 2}")
             #     continue
@@ -1123,7 +1127,7 @@ class VisualizationFunctions:
             if sub_df.empty:
                 continue
 
-            sub_df = self._compute_coordination_number(df=sub_df, eps=0, ratio_frame=1)
+            sub_df = self._compute_coordination_number(df=sub_df, eps=15, ratio_frame=1)
             # sub_df.dropna(inplace=True)
             time_interval = sub_df["dt"].unique()
 
@@ -5276,12 +5280,14 @@ class VisualizationFunctions:
         velocity: str | list | Path = None,
         frames: int | list | np.ndarray = None,
         labels: int | list | np.ndarray = None,
-        time_interval: float = 1 / 8000,
-        pixel_size: float = 1.0,
+        time_interval: float = None,
+        pixel_size: float = None,
         path_save: str | list = None,
         do_save: str | Path = False,
         x_unit: str = "frames",
         y_unit: str = "m/s",
+        min_decimal_x = None,
+        min_decimal_y = None,
         use_subpixel: bool = False,
         do_plot_error: bool = False,
         do_smooth: bool = False,
@@ -5436,9 +5442,8 @@ class VisualizationFunctions:
 
             # compute velocity at d_p / 2
             if vel is not None:
-
                 df["vel_altitude"] = df.groupby("label")["diameter_mean"].transform(
-                    lambda x: ((x / 2) * pixel_size / 1000) * vel_grad
+                    lambda x: ((x / 2) * pixel_size) * vel_grad
                 )  # m/s
 
             # if len(df["velocity"]) > 3:
@@ -5450,8 +5455,8 @@ class VisualizationFunctions:
 
             data_dict = {
                 "curves": True,
-                "x": [group["frame"].to_numpy() for _, group in grouped_label],
-                "y": [group["velocity"].to_numpy() for _, group in grouped_label],
+                "x": [group["frame"].to_numpy() * unit_factor_x for _, group in grouped_label],
+                "y": [group["velocity"].to_numpy() * unit_factor_y for _, group in grouped_label],
                 "label": [group["label"].to_numpy() for _, group in grouped_label],
                 # "fit": [fit_func],
                 "x_log": False,
@@ -5461,12 +5466,9 @@ class VisualizationFunctions:
                 "y_label": unit_label_y,
                 "min_decimals_x": min_decimals_x,
                 "min_decimals_y": min_decimals_y,
-                "velocity_f": [group["vel_altitude"].to_numpy() for _, group in grouped_label],
+                "velocity_f": [group["vel_altitude"].to_numpy() for _, group in grouped_label] if vel is not None else None,
                 "y_unit_2": unit_factor_y_2,
             }
-
-            import pyarrow as pa
-            import pyarrow.parquet as pq
 
             for lbl, group in grouped_label:
                 output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Velocity_run_{4}_label_{lbl}.csv"
@@ -5478,7 +5480,7 @@ class VisualizationFunctions:
                         "velocity_p [mm/s]": group["velocity"].to_numpy() * pixel_size,
                         "diameter_p [px]": group["diameter"].to_numpy(),
                         "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
-                        "velocity_f [m/s]": group["vel_altitude"],
+                        "velocity_f [m/s]": group["vel_altitude"] if vel is not None else None,
                     }
                 )
 
@@ -6280,6 +6282,7 @@ class VisualizationFunctions:
         dataframe: pd.DataFrame = None,
         velocity: pd.DataFrame = None,
         pixel_size: float = 1.0,
+        time_interval: float =  None,
         frames: list | int = None,
         labels: list | int = None,
         x_unit: str = None,
@@ -6384,6 +6387,29 @@ class VisualizationFunctions:
             }
             results.append(data_dict)
 
+            # compute distance
+            distances = [
+                np.sqrt(
+                    (group["x"].to_numpy()[0] - group["x"].to_numpy()[-1])**2 +
+                    (group["y"].to_numpy()[0] - group["y"].to_numpy()[-1])**2
+                    ) * pixel_size
+                for _, group in grouped
+            ]
+            print(distances)
+
+            # sub_df["dx"] = (
+            #     sub_df.groupby("label")["x"].diff().fillna(0.0)
+            # ) * pixel_size
+            # sub_df["dy"] = (
+            #     sub_df.groupby("label")["y"].diff().fillna(0.0)
+            # ) * pixel_size
+
+            # sub_df["disp"] = np.sqrt(
+            #     sub_df.groupby("label")["dx"].transform(lambda x: x**2)
+            #     + sub_df.groupby("label")["dy"].transform(lambda x: x**2)
+            # )
+            # print(sub_df["disp"].shape, sub_df["disp"])
+            
         return results
 
     def Visualize_collisions(

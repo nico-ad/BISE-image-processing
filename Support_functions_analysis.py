@@ -153,7 +153,7 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
         img = img.astype(np.float64)
 
         # spatial component
-        img_smooth = gaussian_filter(img, sigma=sigma_s)
+        # img_smooth = gaussian_filter(img, sigma=sigma_s)
 
         # intensity component
         diff = img[:, :, None] - img[:, None, :]
@@ -231,13 +231,50 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
         )
     binary = clear_border(binary)
 
-    distance = distance_transform_edt(binary)
+    labeled_image = np.zeros_like(binary, dtype=np.int32)
+    label_offset = 0
+    for region in regionprops(measure.label(binary)):
 
-    mask = morphology.h_maxima(distance, h=0.3)
+        fig, ax = plt.subplots()
 
-    markers = measure.label(mask)
+        # extract object from image
+        object = region.image
+        ax.imshow(object)
 
-    labeled_image = watershed(-distance, markers, mask=binary)
+        # compute EDT from object ()
+        distance = distance_transform_edt(object)
+        ax.imshow(distance)
+
+        maxima = morphology.h_maxima(distance, h=params["h_max"])
+        ax.imshow(maxima)
+
+        markers = label(maxima)
+        ax.imshow(markers)
+
+        labels_local = watershed(-distance, markers, mask=object)
+
+        # replace object analysed in original image
+        minr, minc, maxr, maxc = region.bbox
+        labels_local[labels_local > 0] += label_offset
+        labeled_image[minr:maxr, minc:maxc][labels_local > 0]
+
+        # update offset
+        label_offset = labeled_image.max()
+        plt.show()
+
+    ####### ADD FUNCTION to have better h maxima local !!!!!
+
+    # distance = distance_transform_edt(binary)
+
+    # mask = morphology.h_maxima(distance, h=params["h_max"])
+
+    # markers = measure.label(mask)
+    
+    # labeled_image = watershed(-distance, markers, mask=binary)
+
+    ## OUTPUT FUNCTION !!!!!
+
+    
 
     if params["circ_thresh"] is None:
         mean_circularity = np.mean(
@@ -268,7 +305,8 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
 
             start_frame = None
             if start_frame is None:
-                curr_frame = int(str(Path(img_path).name).split(".")[2].split("-")[0])
+                # curr_frame = int(str(Path(img_path).name).split(".")[2].split("-")[0])
+                curr_frame = int(str(Path(img_path).name).split("_")[4])
 
             if circ_thresh[0] <= circularity <= circ_thresh[1]:
                 centroid = prop.centroid
@@ -349,6 +387,9 @@ class ParticleAnalyser(QObject):
         pixel_size: float = 1.0 / 146.0,  # [mm/px]
         circularity_threshold: List[float] = [0.5, 1.5],
         small_objects: int = 10,
+        h_maxima: float = 0.3,
+        rotate_image: int = 0,
+        max_dist_label: int = 20,
         time_interval: Optional[float] = None,
         density: float = 2230.0,  # [kg/m^3]
         nu_air: float = 1.5 * 10 ** (-6),  # [m^2/s]
@@ -421,6 +462,8 @@ class ParticleAnalyser(QObject):
                 msg = "Values of 'min_max_img' must be in ascending order"
                 raise ValueError(msg)
 
+        self.rotate_image = rotate_image
+
         self.crop_image = crop_image
 
         self.format = format
@@ -436,6 +479,10 @@ class ParticleAnalyser(QObject):
         self.use_noise = use_noise
 
         self.fill_holes = fill_holes
+
+        self.h_maxima = h_maxima
+
+        self.max_dist_label = max_dist_label
 
         self.progress_bar_disappear = not progress_bar_disappear
 
@@ -636,7 +683,7 @@ class ParticleAnalyser(QObject):
             if isinstance(list_images, str):
                 list_images = [list_images]
 
-            self.list_images = list_images  # [:100]
+            self.list_images = list_images[:1000]
 
             if output_path.exists():
                 print(f"File {output_path.name} already exists in {output_path.parent}")
@@ -718,7 +765,8 @@ class ParticleAnalyser(QObject):
             "invert_grayscale": self.invert_grayscale,
             "num_worker_per_image": self.num_worker_per_image,
             "dict_fontsize": self.dict_fontsize,
-            "rotate_angle": 0,
+            "rotate_angle": self.rotate_image,
+            "h_max": self.h_maxima,
             "crop": None,
         }
 
@@ -983,7 +1031,7 @@ class ParticleAnalyser(QObject):
     def _get_worker_state(self):
         return {
             "video_sequence": self.video_sequence,
-            "max_distance": self.max_distance,
+            "max_distance": self.max_dist_label,
             "memory": self.memory,
         }
 
@@ -1011,7 +1059,7 @@ class ParticleAnalyser(QObject):
             # df.drop(columns=["label", "local_label", "roi_id"])
 
             print("ASSIGN ID ...", end=" ")
-            df = analyser.Assign_ID_ROI(dataframe=df)
+            df = analyser.Assign_ID_ROI(dataframe=df, max_dist=worker_state["max_distance"])
             df.to_csv(final_path)
             # queue.put(("tick", task_id, "Assign_ID"))
             # print("Assign_ID_ROI done !!!")
@@ -1025,13 +1073,13 @@ class ParticleAnalyser(QObject):
             # print("UpdateDiameters done !!!")
             print("done")
 
-            # print("CLUSTER ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Cluster(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Cluster"))
-            # # print("Cluster done !!!")
-            # print("done")
+            print("CLUSTER ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Cluster(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Cluster"))
+            # print("Cluster done !!!")
+            print("done")
 
             print("MASS ...", end=" ")
             # df = pd.DataFrame(pd.read_csv(path))
@@ -1041,37 +1089,37 @@ class ParticleAnalyser(QObject):
             # print("Mass done !!!")
             print("done")
 
-            # print("VELOCITY ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Velocity(dataframe=df, time_interval=1 / 8000)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Velocity"))
-            # # print("Velocity done !!!")
-            # print(" done")
+            print("VELOCITY ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Velocity(dataframe=df, time_interval=1 / 8000)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Velocity"))
+            # print("Velocity done !!!")
+            print(" done")
 
-            # print("ACCELERATION ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Acceleration(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Acceleration"))
-            # # print("Acceleration done !!!")
-            # print(" done")
+            print("ACCELERATION ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Acceleration(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Acceleration"))
+            # print("Acceleration done !!!")
+            print(" done")
 
-            # print("MOMENTUM ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.Momentum(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "Momentum"))
-            # # print("Momentum done !!!")
-            # print(" done")
+            print("MOMENTUM ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.Momentum(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "Momentum"))
+            # print("Momentum done !!!")
+            print(" done")
 
-            # print("KINETIC ...", end=" ")
-            # # df = pd.DataFrame(pd.read_csv(path))
-            # df = analyser_class.KineticEnergy(dataframe=df)
-            # df.to_csv(final_path)
-            # # queue.put(("tick", task_id, "KineticEnergy"))
-            # # print("KineticEnergy done !!!")
-            # print("done")
+            print("KINETIC ...", end=" ")
+            # df = pd.DataFrame(pd.read_csv(path))
+            df = analyser_class.KineticEnergy(dataframe=df)
+            df.to_csv(final_path)
+            # queue.put(("tick", task_id, "KineticEnergy"))
+            # print("KineticEnergy done !!!")
+            print("done")
 
             # df = pd.DataFrame(pd.read_csv(path))
             # df = analyser_class.Collision(dataframe=df)
@@ -1092,443 +1140,276 @@ class ParticleAnalyser(QObject):
         #     queue.put(("error", task_id, str(e)))
         #     return None
 
-    # def Assign_ID_ROI(
-    #     dataframe: pd.DataFrame = None,
-    #     max_dist: int = 10,  # px
-    #     do_plot: bool = False,
-    #     language: str = "en",
-    #     unit: str = "px",
-    #     labels_used: str = "global",
-    # ):
-
-    #     def _generate_roi(
-    #         x_min: int,
-    #         x_max: int,
-    #         y_min: int,
-    #         y_max: int,
-    #         roi_w: int,
-    #         roi_h: int,
-    #         overlap: int,
-    #     ):
-    #         rois = []
-    #         step_x = roi_w - overlap
-    #         step_y = roi_h - overlap
-
-    #         x0 = x_min
-    #         while x0 + roi_w <= x_max:
-    #             y0 = y_min
-    #             while y0 + roi_h <= y_max:
-    #                 rois.append((x0, y0, x0 + roi_w, y0 + roi_h))
-    #                 y0 += step_y
-    #             x0 += step_x
-    #         return rois
-
-    #     def _track_all_rois_mp(
-    #         df: pd.DataFrame = None,
-    #         rois: list = None,
-    #         max_dist: int = None,
-    #         nproc: int = None,
-    #     ):
-
-    #         if nproc < 1:
-    #             msg = f"'nproc' must be greater than 0, current value is {nproc}"
-    #             raise ValueError(msg)
-
-    #         args = [(i, roi, df, max_dist) for i, roi in enumerate(rois)]
-
-    #         with mp.Pool(processes=nproc) as pool:
-    #             results = pool.map(ParticleAnalyser._track_one_roi, args)
-
-    #         results = [r for r in results if r is not None]
-    #         return pd.concat(results).sort_index()
-
-    #     def _assign_global_labels(
-    #         df: pd.DataFrame = None,
-    #         max_dist: int = None,
-    #         do_plot: bool = False,
-    #     ):
-
-    #         df = df.copy()
-    #         df["global_label"] = -1
-
-    #         next_gid = 0
-    #         frames = sorted(df["frame"].unique())
-
-    #         prev_pos = None
-    #         prev_gid = None
-
-    #         for _, df_t in df.groupby("frame"):
-
-    #             curr_pos = df_t[["x", "y"]].to_numpy()
-    #             n = len(df_t)
-
-    #             if prev_pos is None:
-    #                 df.loc[df_t.index, "global_label"] = np.arange(
-    #                     next_gid, next_gid + n, dtype=int
-    #                 )
-    #                 prev_gid = df.loc[df_t.index, "global_label"].to_numpy()
-    #                 prev_pos = curr_pos
-    #                 next_gid += n
-    #                 continue
-    #             else:
-    #                 cost = cdist(prev_pos, curr_pos)
-    #                 cost[cost > max_dist] = 1e3
-
-    #             # display cost matrix
-    #             if do_plot:
-    #                 _, ax = plt.subplots()
-    #                 ax.imshow(cost)
-
-    #                 n_labels = max(cost.shape)
-
-    #                 if n_labels <= 10:
-    #                     base_map = plt.get_cmap("tab10")
-    #                 if 10 < n_labels <= 20:
-    #                     base_map = plt.get_cmap("tab20")
-    #                 elif n_labels > 20:
-    #                     base_map = plt.get_cmap("plasma")
-
-    #                 ncolors = int(np.max(cost) - np.min(cost) + 1)
-    #                 colors = base_map(np.linspace(0, 1, ncolors))
-    #                 cmap = mcolors.ListedColormap(colors)
-
-    #                 ax.set_xlim(0, cost.shape[1])
-    #                 ax.set_ylim(0, cost.shape[0])
-
-    #                 x_ticks = ax.get_xticks()[:-1]
-    #                 y_ticks = ax.get_yticks()[:-1]
-
-    #                 ax.set_xticks(x_ticks)
-    #                 ax.set_yticks(y_ticks)
-
-    #                 ax.set_xticklabels(
-    #                     [f"{x_tick:.0f}" for x_tick in x_ticks]
-    #                 )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
-    #                 if language == "fr":
-    #                     ax.set_xlabel(
-    #                         "Particles detectées à l'image précédente"
-    #                     )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-    #                 if language == "en":
-    #                     ax.set_xlabel(
-    #                         "Detected particles in previous frame"
-    #                     )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-
-    #                 ax.set_yticklabels(
-    #                     [f"{y_tick:.0f}" for y_tick in y_ticks]
-    #                 )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
-    #                 if language == "fr":
-    #                     ax.set_ylabel(
-    #                         "Particles detectées à l'image courante"
-    #                     )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-    #                 if language == "en":
-    #                     ax.set_ylabel(
-    #                         "Detected particles in current frame"
-    #                     )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-
-    #                 norm = mcolors.BoundaryNorm(
-    #                     np.arange(np.min(cost), np.max(cost) + 2, 1), ncolors=ncolors
-    #                 )
-
-    #                 norm = plt.Normalize(vmin=np.min(cost), vmax=np.max(cost))
-    #                 sm = plt.cm.ScalarMappable(
-    #                     cmap=cmap,
-    #                     norm=norm,
-    #                 )
-    #                 sm.set_array([])
-    #                 cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
-    #                 cbar_ticks = cbar.get_ticks()
-    #                 cbar.set_ticks(cbar_ticks)
-    #                 cbar.set_ticklabels(
-    #                     [f"{np.abs(cbar_tick):.0f}" for cbar_tick in cbar_ticks]
-    #                 )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
-    #                 if language == "fr":
-    #                     cbar.set_label(
-    #                         "Coût"
-    #                     )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-    #                 if language == "en":
-    #                     cbar.set_label(
-    #                         "Cost"
-    #                     )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-
-    #             plt.show()
-    #                 # plt.savefig(
-    #                 #     f"/home/abad-ale/Documents/Images_Assign_ID/Cost_matrix_frame_{t}.png"
-    #                 # )
-
-    #             gids = np.full(n, -1, dtype=int)
-    #             if not (
-    #                 np.any(~np.isfinite(cost).all(axis=1))
-    #                 or np.any(~np.isfinite(cost).all(axis=0))
-    #             ):
-    #                 row_ind, col_ind = linear_sum_assignment(cost)
-
-    #                 for i, j in zip(row_ind, col_ind):
-    #                     if np.isfinite(cost[i, j]):
-    #                         gids[j] = prev_gid[i]
-
-    #             for j in range(n):
-    #                 if gids[j] == -1:
-    #                     gids[j] = next_gid
-    #                     next_gid += 1
-
-    #             df.loc[df_t.index, "global_label"] = gids
-    #             prev_pos = curr_pos
-    #             prev_gid = gids
-
-    #         return df
-
-    #     def _full_tracking_pipeline(
-    #         df: pd.DataFrame = None,
-    #         roi_params: list = None,
-    #         max_dist: int = None,
-    #         merge_dist: int = None,
-    #         nproc: int = 1,
-    #         do_plot: bool = False,
-    #     ):
-    #         xmin, xmax, ymin, ymax, roi_w, roi_h, overlap = roi_params
-    #         rois = _generate_roi(xmin, xmax, ymin, ymax, roi_w, roi_h, overlap)
-
-    #         df_local = _track_all_rois_mp(df, rois, max_dist=max_dist, nproc=nproc)
-    #         df_final = _assign_global_labels(df_local, max_dist, do_plot=do_plot)
-
-    #         return df_final, rois
-
-    #     dataframe = dataframe.copy()
-
-    #     required_cols = {"frame", "main_path", "name", "x", "y"}
-    #     missing = required_cols - set(dataframe.columns)
-    #     if missing:
-    #         msg = f"Missing requiered column(s) : {missing}"
-    #         raise KeyError(msg)
-
-    #     # get image shape
-    #     img_size = _load_image_core(
-    #         image_path=Path(
-    #             dataframe["main_path"].unique()[0], dataframe["name"].unique()[0]
-    #         ),
-    #         invert=False,
-    #     ).shape
-
-    #     # compute tracking
-    #     # if not all(col in dataframe.columns for col in ["label", "local_label", "roi_id"]):
-    #     df_local, rois = _full_tracking_pipeline(
-    #         dataframe,
-    #         roi_params=(0, img_size[1], 0, img_size[0], img_size[1], img_size[0], 0),
-    #         max_dist=max_dist,
-    #         # merge_dist=7,
-    #         nproc=1,
-    #     )
-
-    #     df_tracked = dataframe.copy()
-    #     df_tracked["label"] = -1
-    #     df_tracked["local_label"] = -1
-    #     df_tracked["roi_id"] = -1
-
-    #     if not df_local.empty:
-    #         df_tracked.loc[df_local.index, "label"] = df_local["global_label"]
-    #         df_tracked.loc[df_local.index, "local_label"] = df_local["local_label"]
-    #         df_tracked.loc[df_local.index, "roi_id"] = df_local["roi_id"]
-
-    #     # else:
-    #     #     df_tracked = dataframe.copy()
-
-    #     # display
-    #     if do_plot:
-    #         if labels_used == "global":
-    #             labels = df_tracked["label"].unique()
-    #         else:
-    #             labels = df_tracked["local_label"].unique()
-    #         n_labels = len(labels)
-    #         print()
-    #         print("Info labels :")
-    #         print(f"    number of labels : {n_labels}")
-    #         print(
-    #             f"    min label : {df_tracked['label'].unique().min()}, max label : {df_tracked['label'].unique().max()}"
-    #         )
-
-    #         frames = df_tracked["frame"].unique()
-    #         n_frames = len(frames)
-
-    #         print(f"Number of frames : {n_frames}")
-
-    #         if n_labels <= 10:
-    #             base_map = plt.get_cmap("tab10")
-    #         if 10 < n_labels <= 20:
-    #             base_map = plt.get_cmap("tab20")
-    #         elif n_labels > 20:
-    #             base_map = plt.get_cmap("plasma")
-
-    #         colors = base_map(np.linspace(0, 1, n_labels))
-    #         cmap = mcolors.ListedColormap(colors)
-    #         norm = mcolors.BoundaryNorm(np.arange(n_labels + 1) - 0.5, n_labels)
-
-    #         for frame_id, group_frames in df_tracked.groupby("frame"):
-
-    #             _, ax = plt.subplots()
-
-    #             ax.set_title(f"Frame : {frame_id}")
-
-    #             # ----- add image
-    #             path_img = Path(
-    #                 group_frames["main_path"].unique()[0],
-    #                 group_frames["name"].unique()[0],
-    #             )
-    #             img = _load_image_core(path_img, invert=False)
-    #             ax.imshow(img, cmap="gray")
-
-    #             # ----- add ROIs
-    #             for roi in rois:
-    #                 x0, y0, x1, y1 = roi
-    #                 width, height = x1 - x0, y1 - y0
-    #                 rect = patches.Rectangle(
-    #                     (x0, y0),
-    #                     width,
-    #                     height,
-    #                     edgecolor="black",
-    #                     facecolor="tab:red",
-    #                     alpha=0.2,
-    #                 )
-    #                 ax.add_patch(rect)
-
-    #             # ----- add labels
-    #             for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
-    #                 # add particle coordinates
-    #                 ax.scatter(
-    #                     group_labels["x"],
-    #                     group_labels["y"],
-    #                     color=cmap(i),
-    #                     marker="o",
-    #                     alpha=1.0,
-    #                 )
-
-    #                 # ----- add circle per label
-    #                 for x, y, d in zip(
-    #                     group_labels["x"], group_labels["y"], group_labels["diameter"]
-    #                 ):
-    #                     # add equivalent diameter
-    #                     ax.add_patch(plt.Circle((x, y), d / 2, color="b", fill=False))
-
-    #                     # add neighboor distance
-    #                     ax.add_patch(
-    #                         plt.Circle((x, y), max_dist, color="r", fill=False)
-    #                     )
-
-    #             ax.set_xlim(0, img_size[1])
-    #             ax.set_ylim(0, img_size[0])
-
-    #             x_ticks = ax.get_xticks()[:-1]
-    #             y_ticks = ax.get_yticks()[:-1]
-
-    #             ax.set_xticks(x_ticks)
-    #             ax.set_yticks(y_ticks)
-
-    #             ax.set_xlabel("x [px]")  # , fontsize=self.dict_fontsize["label"])
-    #             ax.set_ylabel("y [px]")  # , fontsize=self.dict_fontsize["label"])
-    #             ax.set_xticklabels(
-    #                 [f"{x_tick:.0f}" for x_tick in x_ticks]
-    #             )  # , fontsize=self.dict_fontsize["ticks"])
-    #             ax.set_yticklabels(
-    #                 [f"{y_tick:.0f}" for y_tick in y_ticks]
-    #             )  # , fontsize=self.dict_fontsize["ticks"])
-
-    #             # add colorbar
-    #             # sm = plt.cm.ScalarMappable(
-    #             #     cmap=cmap,
-    #             #     norm=norm,
-    #             #     )
-    #             # sm.set_array([])
-    #             # cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
-    #             # cbar_ticks = cbar.get_ticks()
-    #             # cbar.set_ticks(cbar_ticks)
-    #             # if language == "fr":
-    #             #     cbar.set_label("Labels")#, fontsize=self.dict_fontsize["label"])
-    #             # if language == "en":
-    #             #     cbar.set_label("Labels")#, fontsize=self.dict_fontsize["label"])
-    #             # cbar.set_ticklabels([])
-
-    #             # if labels_used == "global":
-    #             #     cbar.set_ticklabels([f"{np.abs(cbar_tick)+0.5:.0f}" for cbar_tick in cbar_ticks])#, fontsize=self.dict_fontsize["ticks"])
-    #             # else:
-    #             #     for i, cbar_tick in enumerate(cbar_ticks):
-    #             #         cbar.ax.text(
-    #             #             0.5, cbar_tick - 0.5,
-    #             #             f"{int(cbar_tick)}",
-    #             #             ha="center", va="center",
-    #             #             # fontsize=self.dict_fontsize["ticks"],
-    #             #         )
-
-    #             plt.show()
-    #             # plt.savefig(
-    #             #     f"/home/abad-ale/Documents/Images_Assign_ID/Assign_ID_frame_{frame_id}.png"
-    #             # )
-
-    #     return df_tracked
-
     def Assign_ID_ROI(
         dataframe: pd.DataFrame = None,
-        max_dist: int = 10,  # search radius in px
+        max_dist: int = None,  # px
         do_plot: bool = False,
-    ) -> pd.DataFrame :
-        """ Assign IDs to particles based on a frame-to-frame tracking """
+        language: str = "en",
+        unit: str = "px",
+        labels_used: str = "global",
+    ):
 
-        df = dataframe.copy()
+        def _generate_roi(
+            x_min: int,
+            x_max: int,
+            y_min: int,
+            y_max: int,
+            roi_w: int,
+            roi_h: int,
+            overlap: int,
+        ):
+            rois = []
+            step_x = roi_w - overlap
+            step_y = roi_h - overlap
 
-        # ----- check missing columns
-        required_cols = {"frame", "main_path", "name", "x", "y"}
-        missing = required_cols - set(df.columns)
-        if missing:
-            raise KeyError(f"Missing required column(s) : {missing}")
-        
-        # ----- initialize dataframe
-        df["label"] = -1
-        next_id = 0
-        prev_pos = None
-        prev_id = None
+            x0 = x_min
+            while x0 + roi_w <= x_max:
+                y0 = y_min
+                while y0 + roi_h <= y_max:
+                    rois.append((x0, y0, x0 + roi_w, y0 + roi_h))
+                    y0 += step_y
+                x0 += step_x
+            return rois
 
-        # ----- analyse by frame
-        for _, df_frame in df.groupby("frame"):
-            curr_pos = df_frame[["x", "y"]].to_numpy()
-            n = len(df_frame)
+        def _track_all_rois_mp(
+            df: pd.DataFrame = None,
+            rois: list = None,
+            max_dist: int = None,
+            nproc: int = None,
+        ):
 
-            # assign initial labels
-            if prev_pos is None:
-                df.loc[df_frame.index, "label"] = np.arange(next_id, next_id + n, dtype=int)
-                prev_id = df.loc[df_frame.index, "label"].to_numpy()
-                prev_pos = curr_pos
-                next_id += n
-                continue
-                
-            # compute cost matrix
-            cost = cdist(prev_pos, curr_pos)
-            cost[cost > max_dist] = 1e3  # px
+            if nproc < 1:
+                msg = f"'nproc' must be greater than 0, current value is {nproc}"
+                raise ValueError(msg)
 
-            ids = np.full(n, -1, dtype=int)
-            if np.all(~np.isfinite(cost)):
-                row_ind, col_ind = linear_sum_assignment(cost)
-                for i, j in zip(row_ind, col_ind):
-                    if np.isfinite(cost[i, j]):
-                        ids[j] = prev_id[i]
-            
-            # assign new IDs to unliked particles
-            for j in range(n):
-                if ids[j] == -1:
-                    ids[j] = next_id
-                    next_id += 1
-            
-            df.loc[df_frame.index, "label"] = ids
-            prev_pos = curr_pos
-            prev_id = ids
-    
-        def _plot_assign_particles(df, max_dist):
+            args = [(i, roi, df, max_dist) for i, roi in enumerate(rois)]
 
+            with mp.Pool(processes=nproc) as pool:
+                results = pool.map(ParticleAnalyser._track_one_roi, args)
+
+            results = [r for r in results if r is not None]
+            return pd.concat(results).sort_index()
+
+        def _assign_global_labels(
+            df: pd.DataFrame = None,
+            max_dist: int = None,
+            do_plot: bool = False,
+        ):
+
+            df = df.copy()
+            df["global_label"] = -1
+
+            next_gid = 0
             frames = sorted(df["frame"].unique())
-            n_labels = df["label"].nunique()
 
-            for f, group_frames in df.groupby("frame"):
+            prev_pos = None
+            prev_gid = None
 
-                fig, ax = plt.subplots()
+            for t, df_t in df.groupby("frame"):
 
-                ax.set_title(f"Frame : {f}")
+                curr_pos = df_t[["x", "y"]].to_numpy()
+                n = len(df_t)
+
+                if prev_pos is None:
+                    df.loc[df_t.index, "global_label"] = np.arange(
+                        next_gid, next_gid + n, dtype=int
+                    )
+                    prev_gid = df.loc[df_t.index, "global_label"].to_numpy()
+                    prev_pos = curr_pos
+                    next_gid += n
+                    continue
+                else:
+                    cost = cdist(prev_pos, curr_pos)
+                    cost[cost > max_dist] = 1e4
+
+                # display cost matrix
+                if do_plot:
+                    _, ax = plt.subplots()
+                    ax.imshow(cost)
+
+                    n_labels = max(cost.shape)
+
+                    if n_labels <= 10:
+                        base_map = plt.get_cmap("tab10")
+                    if 10 < n_labels <= 20:
+                        base_map = plt.get_cmap("tab20")
+                    elif n_labels > 20:
+                        base_map = plt.get_cmap("plasma")
+
+                    ncolors = int(np.max(cost) - np.min(cost) + 1)
+                    colors = base_map(np.linspace(0, 1, ncolors))
+                    cmap = mcolors.ListedColormap(colors)
+
+                    ax.set_xlim(0, cost.shape[1])
+                    ax.set_ylim(0, cost.shape[0])
+
+                    x_ticks = ax.get_xticks()[:-1]
+                    y_ticks = ax.get_yticks()[:-1]
+
+                    ax.set_xticks(x_ticks)
+                    ax.set_yticks(y_ticks)
+
+                    ax.set_xticklabels(
+                        [f"{x_tick:.0f}" for x_tick in x_ticks]
+                    )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
+                    if language == "fr":
+                        ax.set_xlabel(
+                            "Particles detectées à l'image précédente"
+                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+                    if language == "en":
+                        ax.set_xlabel(
+                            "Detected particles in previous frame"
+                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+
+                    ax.set_yticklabels(
+                        [f"{y_tick:.0f}" for y_tick in y_ticks]
+                    )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
+                    if language == "fr":
+                        ax.set_ylabel(
+                            "Particles detectées à l'image courante"
+                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+                    if language == "en":
+                        ax.set_ylabel(
+                            "Detected particles in current frame"
+                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+
+                    norm = mcolors.BoundaryNorm(
+                        np.arange(np.min(cost), np.max(cost) + 2, 1), ncolors=ncolors
+                    )
+
+                    norm = plt.Normalize(vmin=np.min(cost), vmax=np.max(cost))
+                    sm = plt.cm.ScalarMappable(
+                        cmap=cmap,
+                        norm=norm,
+                    )
+                    sm.set_array([])
+                    cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
+                    cbar_ticks = cbar.get_ticks()
+                    cbar.set_ticks(cbar_ticks)
+                    cbar.set_ticklabels(
+                        [f"{np.abs(cbar_tick):.0f}" for cbar_tick in cbar_ticks]
+                    )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
+                    if language == "fr":
+                        cbar.set_label(
+                            "Coût"
+                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+                    if language == "en":
+                        cbar.set_label(
+                            "Cost"
+                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+
+                    # plt.show()
+                    # plt.savefig(
+                    #     f"/home/abad-ale/Documents/Images_Assign_ID/100/Cost_matrix_frame_{t}_dist_{max_dist}.png"
+                    # )
+
+                gids = np.full(n, -1, dtype=int)
+                if not (
+                    np.any(~np.isfinite(cost).all(axis=1))
+                    or np.any(~np.isfinite(cost).all(axis=0))
+                ):
+                    row_ind, col_ind = linear_sum_assignment(cost)
+
+                    for i, j in zip(row_ind, col_ind):
+                        if np.isfinite(cost[i, j]):
+                            gids[j] = prev_gid[i]
+
+                for j in range(n):
+                    if gids[j] == -1:
+                        gids[j] = next_gid
+                        next_gid += 1
+
+                df.loc[df_t.index, "global_label"] = gids
+                prev_pos = curr_pos
+                prev_gid = gids
+
+            return df
+
+        def _full_tracking_pipeline(
+            df: pd.DataFrame = None,
+            roi_params: list = None,
+            max_dist: int = None,
+            merge_dist: int = None,
+            nproc: int = 1,
+            do_plot: bool = False,
+        ):
+            xmin, xmax, ymin, ymax, roi_w, roi_h, overlap = roi_params
+            rois = _generate_roi(xmin, xmax, ymin, ymax, roi_w, roi_h, overlap)
+
+            df_local = _track_all_rois_mp(df, rois, max_dist=max_dist, nproc=nproc)
+            df_final = _assign_global_labels(df_local, max_dist, do_plot=do_plot)
+
+            return df_final, rois
+
+        dataframe = dataframe.copy()
+
+        required_cols = {"frame", "main_path", "name", "x", "y"}
+        missing = required_cols - set(dataframe.columns)
+        if missing:
+            msg = f"Missing requiered column(s) : {missing}"
+            raise KeyError(msg)
+
+        # get image shape
+        img_size = (*dataframe["image_width"].unique(), *dataframe["image_height"].unique())
+
+        # compute tracking
+        # if not all(col in dataframe.columns for col in ["label", "local_label", "roi_id"]):
+        df_local, rois = _full_tracking_pipeline(
+            dataframe,
+            roi_params=(0, img_size[1], 0, img_size[0], img_size[1], img_size[0], 0),
+            max_dist=max_dist,
+            # merge_dist=7,
+            nproc=1,
+        )
+
+        df_tracked = dataframe.copy()
+        df_tracked["label"] = -1
+        df_tracked["local_label"] = -1
+        df_tracked["roi_id"] = -1
+
+        if not df_local.empty:
+            df_tracked.loc[df_local.index, "label"] = df_local["global_label"]
+            df_tracked.loc[df_local.index, "local_label"] = df_local["local_label"]
+            df_tracked.loc[df_local.index, "roi_id"] = df_local["roi_id"]
+
+        # else:
+        #     df_tracked = dataframe.copy()
+
+        # display
+        if do_plot:
+            if labels_used == "global":
+                labels = df_tracked["label"].unique()
+            else:
+                labels = df_tracked["local_label"].unique()
+            n_labels = len(labels)
+            print()
+            print("Info labels :")
+            print(f"    number of labels : {n_labels}")
+            print(
+                f"    min label : {df_tracked['label'].unique().min()}, max label : {df_tracked['label'].unique().max()}"
+            )
+
+            frames = df_tracked["frame"].unique()
+            n_frames = len(frames)
+
+            print(f"Number of frames : {n_frames}")
+
+            if n_labels <= 10:
+                base_map = plt.get_cmap("tab10")
+            if 10 < n_labels <= 20:
+                base_map = plt.get_cmap("tab20")
+            elif n_labels > 20:
+                base_map = plt.get_cmap("plasma")
+
+            colors = base_map(np.linspace(0, 1, n_labels))
+            cmap = mcolors.ListedColormap(colors)
+            norm = mcolors.BoundaryNorm(np.arange(n_labels + 1) - 0.5, n_labels)
+
+            for frame_id, group_frames in df_tracked.groupby("frame"):
+
+                _, ax = plt.subplots()
+
+                ax.set_title(f"Frame : {frame_id}")
 
                 # ----- add image
                 path_img = Path(
@@ -1538,31 +1419,45 @@ class ParticleAnalyser(QObject):
                 img = _load_image_core(path_img, invert=False)
                 ax.imshow(img, cmap="gray")
 
+                # ----- add ROIs
+                for roi in rois:
+                    x0, y0, x1, y1 = roi
+                    width, height = x1 - x0, y1 - y0
+                    rect = patches.Rectangle(
+                        (x0, y0),
+                        width,
+                        height,
+                        edgecolor="black",
+                        facecolor="tab:red",
+                        alpha=0.2,
+                    )
+                    ax.add_patch(rect)
+
                 # ----- add labels
-                if f == 0:
-                    for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
-                        # add particle coordinates
-                        ax.scatter(
-                            group_labels["x"],
-                            group_labels["y"],
-                            marker="o",
-                            alpha=1.0,
+                for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
+                    # add particle coordinates
+                    ax.scatter(
+                        group_labels["x"],
+                        group_labels["y"],
+                        color=cmap(i),
+                        marker="o",
+                        alpha=1.0,
+                    )
+
+                    # ----- add circle per label
+                    for x, y, d in zip(
+                        group_labels["x"], group_labels["y"], group_labels["diameter"]
+                    ):
+                        # add equivalent diameter
+                        ax.add_patch(plt.Circle((x, y), d / 2, color="b", fill=False))
+
+                        # add neighboor distance
+                        ax.add_patch(
+                            plt.Circle((x, y), max_dist, color="r", fill=False)
                         )
 
-                        # ----- add circle per label
-                        for x, y, d in zip(
-                            group_labels["x"], group_labels["y"], group_labels["diameter"]
-                        ):
-                            # add equivalent diameter
-                            ax.add_patch(plt.Circle((x, y), d / 2, color="b", fill=False))
-
-                            # add neighboor distance
-                            ax.add_patch(
-                                plt.Circle((x, y), max_dist, color="r", fill=False)
-                            )
-
-                # ax.set_xlim(0, df["image_height"])
-                # ax.set_ylim(0, df["image_width"])
+                ax.set_xlim(0, img_size[1])
+                ax.set_ylim(0, img_size[0])
 
                 x_ticks = ax.get_xticks()[:-1]
                 y_ticks = ax.get_yticks()[:-1]
@@ -1579,15 +1474,163 @@ class ParticleAnalyser(QObject):
                     [f"{y_tick:.0f}" for y_tick in y_ticks]
                 )  # , fontsize=self.dict_fontsize["ticks"])
 
+                # add colorbar
+                # sm = plt.cm.ScalarMappable(
+                #     cmap=cmap,
+                #     norm=norm,
+                #     )
+                # sm.set_array([])
+                # cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
+                # cbar_ticks = cbar.get_ticks()
+                # cbar.set_ticks(cbar_ticks)
+                # if language == "fr":
+                #     cbar.set_label("Labels")#, fontsize=self.dict_fontsize["label"])
+                # if language == "en":
+                #     cbar.set_label("Labels")#, fontsize=self.dict_fontsize["label"])
+                # cbar.set_ticklabels([])
+
+                # if labels_used == "global":
+                #     cbar.set_ticklabels([f"{np.abs(cbar_tick)+0.5:.0f}" for cbar_tick in cbar_ticks])#, fontsize=self.dict_fontsize["ticks"])
+                # else:
+                #     for i, cbar_tick in enumerate(cbar_ticks):
+                #         cbar.ax.text(
+                #             0.5, cbar_tick - 0.5,
+                #             f"{int(cbar_tick)}",
+                #             ha="center", va="center",
+                #             # fontsize=self.dict_fontsize["ticks"],
+                #         )
+
                 plt.show()
+                # plt.savefig(
+                #     f"/home/abad-ale/Documents/Images_Assign_ID/Assign_ID_frame_{frame_id}.png"
+                # )
 
-                break
+        return df_tracked
 
-        # ----- plot
-        if do_plot:
-            _plot_assign_particles(df, max_dist)
+    # def Assign_ID_ROI(
+    #     dataframe: pd.DataFrame = None,
+    #     max_dist: int = 10,  # search radius in px
+    #     do_plot: bool = False,
+    # ) -> pd.DataFrame :
+    #     """ Assign IDs to particles based on a frame-to-frame tracking """
+
+    #     df = dataframe.copy()
+
+    #     # ----- check missing columns
+    #     required_cols = {"frame", "main_path", "name", "x", "y"}
+    #     missing = required_cols - set(df.columns)
+    #     if missing:
+    #         raise KeyError(f"Missing required column(s) : {missing}")
         
-        return df
+    #     # ----- initialize dataframe
+    #     df["label"] = -1
+    #     next_id = 0
+    #     prev_pos = None
+    #     prev_id = None
+
+    #     # ----- analyse by frame
+    #     for _, df_frame in df.groupby("frame"):
+    #         curr_pos = df_frame[["x", "y"]].to_numpy()
+    #         n = len(df_frame)
+
+    #         # assign initial labels
+    #         if prev_pos is None:
+    #             df.loc[df_frame.index, "label"] = np.arange(next_id, next_id + n, dtype=int)
+    #             prev_id = df.loc[df_frame.index, "label"].to_numpy()
+    #             prev_pos = curr_pos
+    #             next_id += n
+    #             continue
+                
+    #         # compute cost matrix
+    #         cost = cdist(prev_pos, curr_pos)
+    #         cost[cost > max_dist] = 1e3  # px
+
+    #         ids = np.full(n, -1, dtype=int)
+    #         if np.all(~np.isfinite(cost)):
+    #             row_ind, col_ind = linear_sum_assignment(cost)
+    #             for i, j in zip(row_ind, col_ind):
+    #                 if np.isfinite(cost[i, j]):
+    #                     ids[j] = prev_id[i]
+            
+    #         # assign new IDs to unliked particles
+    #         for j in range(n):
+    #             if ids[j] == -1:
+    #                 ids[j] = next_id
+    #                 next_id += 1
+            
+    #         df.loc[df_frame.index, "label"] = ids
+    #         prev_pos = curr_pos
+    #         prev_id = ids
+    
+    #     def _plot_assign_particles(df, max_dist):
+
+    #         frames = sorted(df["frame"].unique())
+    #         n_labels = df["label"].nunique()
+
+    #         for f, group_frames in df.groupby("frame"):
+
+    #             fig, ax = plt.subplots()
+
+    #             ax.set_title(f"Frame : {f}")
+
+    #             # ----- add image
+    #             path_img = Path(
+    #                 group_frames["main_path"].unique()[0],
+    #                 group_frames["name"].unique()[0],
+    #             )
+    #             img = _load_image_core(path_img, invert=False)
+    #             ax.imshow(img, cmap="gray")
+
+    #             # ----- add labels
+    #             if f == 0:
+    #                 for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
+    #                     # add particle coordinates
+    #                     ax.scatter(
+    #                         group_labels["x"],
+    #                         group_labels["y"],
+    #                         marker="o",
+    #                         alpha=1.0,
+    #                     )
+
+    #                     # ----- add circle per label
+    #                     for x, y, d in zip(
+    #                         group_labels["x"], group_labels["y"], group_labels["diameter"]
+    #                     ):
+    #                         # add equivalent diameter
+    #                         ax.add_patch(plt.Circle((x, y), d / 2, color="b", fill=False))
+
+    #                         # add neighboor distance
+    #                         ax.add_patch(
+    #                             plt.Circle((x, y), max_dist, color="r", fill=False)
+    #                         )
+
+    #             # ax.set_xlim(0, df["image_height"])
+    #             # ax.set_ylim(0, df["image_width"])
+
+    #             x_ticks = ax.get_xticks()[:-1]
+    #             y_ticks = ax.get_yticks()[:-1]
+
+    #             ax.set_xticks(x_ticks)
+    #             ax.set_yticks(y_ticks)
+
+    #             ax.set_xlabel("x [px]")  # , fontsize=self.dict_fontsize["label"])
+    #             ax.set_ylabel("y [px]")  # , fontsize=self.dict_fontsize["label"])
+    #             ax.set_xticklabels(
+    #                 [f"{x_tick:.0f}" for x_tick in x_ticks]
+    #             )  # , fontsize=self.dict_fontsize["ticks"])
+    #             ax.set_yticklabels(
+    #                 [f"{y_tick:.0f}" for y_tick in y_ticks]
+    #             )  # , fontsize=self.dict_fontsize["ticks"])
+
+    #             plt.show()
+
+    #             break
+
+    #     # ----- plot
+    #     if do_plot:
+    #         _plot_assign_particles(df, max_dist)
+        
+    #     return df
 
     @staticmethod
     def _select_roi(df: pd.DataFrame = None, roi: list = None) -> pd.DataFrame:
@@ -1617,6 +1660,7 @@ class ParticleAnalyser(QObject):
             curr = df[df.frame == f_curr].copy()
             curr["local_label"] = -1
 
+            # first frame set labels
             if len(prev) == 0:
                 curr["local_label"] = np.arange(next_id, next_id + len(curr))
                 next_id += len(curr)

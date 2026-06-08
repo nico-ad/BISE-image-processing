@@ -17,13 +17,14 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QGroupBox,
     QGridLayout,
+    QGraphicsDropShadowEffect,
 )
 from PyQt5.QtWidgets import (
     QStyledItemDelegate,
     QVBoxLayout,
     QHBoxLayout,
 )
-from PyQt5.QtGui import QIcon, QFont, QPixmap, QImage
+from PyQt5.QtGui import QIcon, QFont, QPixmap, QImage, QColor
 
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -143,6 +144,7 @@ class HelperTab2(QWidget):
         self.system_monitor = SystemMonitorWidget(parent=self)
         self.system_monitor.setMinimumHeight(180)
         left_panel.addWidget(self.system_monitor)
+        self.system_monitor._start()
         
         left_panel.addStretch()
         
@@ -211,20 +213,13 @@ class HelperTab2(QWidget):
             self.run_button.setStyleSheet("background-color: lightgray; color: white;")
     
     def _handle_settings(self, settings):
-        # table_values = settings["table"]
-        # checkbox_values = settings["checkboxes"]
-        # print(table_values)
-        # print(checkbox_values)
         self.settings = settings
-        # print(self.settings)
-        # print()
-        # print("LOL")
 
     def _start_analysis(self):
         """ Run image analysis """
         
-        self._start_chrono()
-        self.system_monitor._start()
+        # self._start_chrono()
+        # self.system_monitor._start()
         
         # change button visual
         self.run_button.setEnabled(False)
@@ -243,28 +238,6 @@ class HelperTab2(QWidget):
 
         self._run_next_folder()
     
-    def _read_parameters(self) -> dict:
-        """ Read table of parameters for image analysis """
-        
-        current_params = {}
-        for row in range(self.parent.parameters_table_tab_1.rowCount()):
-            # first column
-            key = self.parent.parameters_table_tab_1.item(row, 0).text()
-            # second column
-            widget = self.parent.parameters_table_tab_1.cellWidget(row, 1)
-            if isinstance(widget, QComboBox):
-                value = widget.currentText()
-            else:
-                item = self.parent.parameters_table_tab_1.item(row, 1)
-                value = item.text() # item.data(Qt.UserRole)
-            try:
-                value = ast.literal_eval(value)
-            except (ValueError, SyntaxError):
-                pass
-            
-            current_params[key] = value
-        return current_params
-    
     def _run_next_folder(self):
         """ Run analysis for the next folder """
         
@@ -277,18 +250,20 @@ class HelperTab2(QWidget):
         
         save_names = Path(folder).parent / Path(f"Particle_analysis_Essai_7_4x10mm3_run_{self.current_analysis_index+1}_freqacq_8000Hz_512_640.csv")
         
-        # params = self._read_parameters()
-        
         self.analyser = func_analysis.ParticleAnalyser(
             parent=self, display_every=self.display_every,
             image_paths=folder,
+            min_max_img=self.settings["table"]["images_range"],
             name_save_files=save_names,
             do_analysis=True,
-            time_interval=1/8000,  # 1/params["frequency acquisition"],
+            time_interval=1/self.settings["table"]["acq_frequency"],  # 1/params["frequency acquisition"],
+            h_maxima=self.settings["table"]["h_max"],
             circularity_threshold= [0.2, 1.0],  # params["circularity thresh"],
-            small_objects=20,  # int(params["small objects"]),
-            total_num_workers=10,  # int(params["number of CPU"]),
-            num_worker_per_image=1,  # int(params["number of CPU per image"]),
+            small_objects=self.settings["table"]["small_objects"],  # int(params["small objects"]),
+            rotate_image=self.settings["table"]["rotate"],
+            max_dist_label=self.settings["table"]["lbl_dist"],
+            total_num_workers=self.settings["table"]["n_cpu"],  # int(params["number of CPU"]),
+            num_worker_per_image=self.settings["table"]["n_cpu_img"],  # int(params["number of CPU per image"]),
             )
         self.worker = self.analyser
         
@@ -733,13 +708,41 @@ class SystemMonitorWidget(QWidget):
         super().__init__(parent)
         
         self.num_cores = psutil.cpu_count(logical=True)
+
+        self.data_group = QGroupBox()
+        self.data_group.setStyleSheet("""
+            QGroupBox {
+            background-color: rgba(255, 255, 255, 0.85);
+            border: 2px solid #AAAAAA;
+            border-radius: 15px;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 14px;
+            padding: 10px;
+            }
+            QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 0 3px;
+            }
+        """)
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(12)
+        shadow.setXOffset(0)
+        shadow.setYOffset(4)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        self.data_group.setGraphicsEffect(shadow)
+
+        data_layout = QVBoxLayout(self.data_group)
         
         main_layout = QVBoxLayout(self)
+        main_layout.addWidget(self.data_group)
         
-        title = QLabel("System monitor")
+        # ----- Title
+        title = QLabel("System monitor dashboard")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
-        main_layout.addWidget(title)
+        data_layout.addWidget(title)
         
         # ==========
         # CPU CORES
@@ -747,6 +750,19 @@ class SystemMonitorWidget(QWidget):
         
         self.cpu_group = QGroupBox("CPU cores usage")
         cpu_layout = QGridLayout(self.cpu_group)
+        self.cpu_group.setStyleSheet("""
+        QGroupBox{
+            font-weight: bold;
+            border: 2px solid #888;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        QGroupBox::title{
+        subcontrol-origin: margin;
+        subcontrol-position: top center;
+        padding: 0 3px;
+        }
+        """)
         
         self.core_bars = []
         self.core_labels = []
@@ -759,23 +775,52 @@ class SystemMonitorWidget(QWidget):
             bar.setRange(0, 100)
             bar.setTextVisible(True)
             bar.setFormat("%p%")
+            bar.setStyleSheet("""
+            QProgressBar{
+                border: 2px solid #555;
+                border-radius: 10px;
+                text-align: center;
+                font-weight: bold;
+            }
+            QProgressBar::chunk{
+                border-radius: 10px;
+                margin: 1px:
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #00bfff, stop:1 #1e90ff
+                );
+            }
+            """)
             
             row = i // 2
             col = (i % 2) * 2
-            
+
             cpu_layout.addWidget(label, row, col)
             cpu_layout.addWidget(bar, row, col + 1)
             
             self.core_labels.append(label)
             self.core_bars.append(bar)
             
-        main_layout.addWidget(self.cpu_group)
+        data_layout.addWidget(self.cpu_group)
         
         # ==========
         # RAM
         # ==========
         
         self.ram_group = QGroupBox("RAM usage")
+        self.ram_group.setStyleSheet("""
+        QGroupBox{
+            font-weight:bold;
+            border: 2px solid #888;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        QGroupBox::title{
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: 0 3px;
+        }
+        """)
         
         ram_layout = QVBoxLayout(self.ram_group)
         
@@ -785,15 +830,32 @@ class SystemMonitorWidget(QWidget):
         self.ram_bar.setRange(0, 100)
         self.ram_bar.setTextVisible(True)
         self.ram_bar.setFormat("RAM %p%")
+        self.ram_bar.setStyleSheet("""
+            QProgressBar{
+                border: 2px solid #555;
+                border-radius: 10px;
+                text-align: center;
+                font-weight: bold;
+            }
+            QProgressBar::chunk{
+                border-radius: 10px;
+                margin: 1px:
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #00bfff, stop:1 #1e90ff
+                );
+            }
+            """)
         
         ram_layout.addWidget(self.ram_label)
         ram_layout.addWidget(self.ram_bar)
+        data_layout.addWidget(self.ram_group)
         
-        main_layout.addWidget(self.ram_group)
-        
+        # ----- Timer
         self.timer = QTimer()
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self._update_metrics)
+        self._update_metrics()
         
     def _start(self):
         self.timer.start()

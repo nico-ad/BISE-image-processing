@@ -91,7 +91,7 @@ class ParticleAnalyser:
             plt.show()
         
         img = img_raw
-        if params["invert_gray"] or True:
+        if params["invert_gray"]:
             img_gray = ImageOps.invert(Image.fromarray(img).convert("L"))
         else: img_gray = Image.fromarray(img_raw).convert("L")
         img_gray = np.array(img_gray, dtype=np.uint8)
@@ -101,59 +101,125 @@ class ParticleAnalyser:
             ax.set_title("GRAY")
             plt.show()
         
-        # compute bilateral filtering
-        filter = 0.1
-        img_gray = self._bilateral_filtering(img_gray, filter, filter)
-        # img_gray = np.array(img_gray, dtype=np.uint8)
-        if do_plot:
-            _, ax = plt.subplots()
-            ax.imshow(img_gray, cmap="gray")
-            ax.set_title("BILATERAL")
-            plt.show()
+        def preprocess_img(img_gray, do_post_binary=True, do_plot=False):
+
+            # compute bilateral filtering
+            filter = 0.1
+            img_gray = self._bilateral_filtering(img_gray, filter, filter)
+            # img_gray = np.array(img_gray, dtype=np.uint8)
+            if do_plot:
+                _, ax = plt.subplots()
+                ax.imshow(img_gray, cmap="gray")
+                ax.set_title("BILATERAL")
+                plt.show()
+            
+            # binarisation
+            binary = self._threshold_image(np.array(img_gray, dtype=np.uint8), chkbx)
+            if do_plot:
+                _, ax = plt.subplots()
+                ax.imshow(binary, cmap="gray")
+                ax.set_title("OTSU")
+                plt.show()
+
+            if do_post_binary:
+                binary = self._postprocess_binary(binary, params, chkbx)
+                if do_plot:
+                    _, ax = plt.subplots()
+                    ax.imshow(binary, cmap="gray")
+                    ax.set_title("BINARY")
+                    plt.show()
+            
+            return np.array(binary/np.max(binary)*255, dtype=np.uint8)
+
+        # print(f"Image gray : {img_gray.shape}, {np.min(img_gray)}, {np.max(img_gray)}")
+        binary = preprocess_img(img_gray, do_post_binary=True)
+        # print(f"Image binarized : {binary.shape}, {np.min(binary)}, {np.max(binary)}")
+        binary_labeled = measure.label(binary)
+
+        labeled_image = np.zeros_like(binary_labeled, dtype=np.int32)
+        label_offset = 0
+        for region in regionprops(binary_labeled):
+
+            minr, minc, maxr, maxc = region.bbox
+
+            # fig, ax = plt.subplots(3, 3)
+
+            # extract object from image
+            mask_object = np.array(region.image, dtype=np.uint8)
+            # print(f"    mask object : {mask_object.shape, mask_object.dtype}, {np.min(mask_object)}, {np.max(mask_object)}")
+            # ax[0, 0].imshow(mask_object, cmap="gray")
+            # ax[0, 0].set_title("mask objet")
+
+            # crop object in gray image 
+            object_gray = np.where(mask_object, img_gray[minr:maxr, minc:maxc], 0)
+            object_gray =np.array(object_gray/np.max(object_gray)*255, dtype=np.uint8)
+            # print(f"    Object gray : {object_gray.shape}, {object_gray.dtype}, {np.min(object_gray)}, {np.max(object_gray)}")
+            # ax[0, 1].imshow(object_gray, cmap="gray")
+            # ax[0, 1].set_title("gray object")
+
+            # pre-process object
+            object = preprocess_img(object_gray, do_post_binary=False)
+            # print(f"    Object binarized : {object.shape}, {object.dtype}, {np.min(object)}, {np.max(object)}")
+            # ax[0, 2].imshow(object, cmap="gray")
+            # ax[0, 2].set_title("pre-process object")
+
+            # compute EDT from object
+            distance = distance_transform_edt(object)
+            # print(distance.shape, object.dtype)
+            # ax[1, 0].imshow(distance, cmap="gray")
+            # ax[1, 0].set_title("Distance")
+
+            maxima = morphology.h_maxima(distance, h=params["h_max"])
+            # print(maxima.shape, maxima.dtype)
+            # ax[1, 1].imshow(maxima, cmap="gray")
+            # ax[1, 1].set_title("H - maxima")
+
+            markers = measure.label(maxima)
+            # print(markers.shape, markers.dtype)
+            # ax[1, 1].imshow(markers, cmap="gray")
+            # ax[0, 0].set_title("markers")
+
+            labels_local = watershed(-distance, markers, mask=object)
+            # print(labels_local.shape, labels_local.dtype)
+            # ax[1, 2].imshow(labels_local, cmap="gray")
+            # ax[1, 2].set_title("watershed")
+
+            # replace object analysed in original image
+            labels_local[labels_local > 0] += label_offset
+            labeled_image[minr:maxr, minc:maxc][labels_local > 0] = labels_local[labels_local > 0]
+
+            # update offset
+            label_offset = labeled_image.max()
+            # plt.show()
         
-        # binarisation
-        binary = self._threshold_image(np.array(img_gray, dtype=np.uint8), chkbx)
-        if do_plot:
-            _, ax = plt.subplots()
-            ax.imshow(binary, cmap="gray")
-            ax.set_title("OTSU")
-            plt.show()
+        # # watershed segmentation
+        # distance = distance_transform_edt(binary)
+        # if do_plot:
+        #     _, ax = plt.subplots()
+        #     ax.imshow(distance, cmap="gray")
+        #     ax.set_title("DISTANCE")
+        #     plt.show()
         
-        binary = self._postprocess_binary(binary, params, chkbx)
-        if do_plot:
-            _, ax = plt.subplots()
-            ax.imshow(binary, cmap="gray")
-            ax.set_title("BINARY")
-            plt.show()
+        # mask = morphology.h_maxima(distance, h=params["h_max"])
+        # if do_plot:
+        #     _, ax = plt.subplots()
+        #     ax.imshow(mask, cmap="gray")
+        #     ax.set_title("MARKERS")
+        #     plt.show()
         
-        # watershed segmentation
-        distance = distance_transform_edt(binary)
-        if do_plot:
-            _, ax = plt.subplots()
-            ax.imshow(distance, cmap="gray")
-            ax.set_title("DISTANCE")
-            plt.show()
+        # markers = measure.label(mask)
+        # if do_plot:
+        #     _, ax = plt.subplots()
+        #     ax.imshow(markers, cmap="gray")
+        #     ax.set_title("Markers")
+        #     plt.show()
         
-        mask = morphology.h_maxima(distance, h=params["h_max"])
-        if do_plot:
-            _, ax = plt.subplots()
-            ax.imshow(mask, cmap="gray")
-            ax.set_title("MARKERS")
-            plt.show()
-        
-        markers = measure.label(mask)
-        if do_plot:
-            _, ax = plt.subplots()
-            ax.imshow(markers, cmap="gray")
-            ax.set_title("Markers")
-            plt.show()
-        
-        labeled_image = watershed(-distance, markers, mask=binary)
-        if do_plot:
-            _, ax = plt.subplots()
-            ax.imshow(labeled_image, cmap="gray")
-            ax.set_title("WATERSHED")
-            plt.show()
+        # labeled_image = watershed(-distance, markers, mask=binary)
+        # if do_plot:
+        #     _, ax = plt.subplots()
+        #     ax.imshow(labeled_image, cmap="gray")
+        #     ax.set_title("WATERSHED")
+        #     plt.show()
 
         all_data = self._extract_particle_data(
             labeled_image,
