@@ -77,28 +77,43 @@ class ParticleAnalyser:
             np.ndarray: segmented image
         """
         
-        do_plot = False
+        do_plot = True
 
         img_raw = Image.open(filename)
         img_raw = np.array(img_raw)
         if img_raw.ndim == 2:
             img_raw = np.stack([img_raw]*3, axis=-1)
+        # img_raw = np.array(Image.fromarray(img_raw).rotate(180))
         
         if do_plot:
             _, ax = plt.subplots()
-            ax.imshow(img_raw, cmap="gray")
-            ax.set_title("RAW")
+            ax.imshow(img_raw, cmap="gray", origin="lower")
+            xticks = ax.get_xticks()
+            yticks = ax.get_yticks()
+            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+            ax.set_xlabel("X [px]", fontsize=20)
+            ax.set_ylabel("y [px]", fontsize=20)
+            # ax.set_title("RAW")
             plt.show()
         
         img = img_raw
         if params["invert_gray"]:
             img_gray = ImageOps.invert(Image.fromarray(img).convert("L"))
-        else: img_gray = Image.fromarray(img_raw).convert("L")
+        else: img_gray = Image.fromarray(img_raw).convert("L").rotate(180)
         img_gray = np.array(img_gray, dtype=np.uint8)
         if do_plot:
             _, ax = plt.subplots()
-            ax.imshow(img_gray, cmap="gray")
-            ax.set_title("GRAY")
+            ax.imshow(img_gray, cmap="gray", origin="lower")
+            # ax.set_title("GRAY")
+            xticks = ax.get_xticks()[1:-1]
+            yticks = ax.get_yticks()[1:-1]
+            ax.set_xticks(xticks)
+            ax.set_yticks(yticks)
+            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+            ax.set_xlabel("X [px]", fontsize=20)
+            ax.set_ylabel("Y [px]", fontsize=20)
             plt.show()
         
         def preprocess_img(img_gray, do_post_binary=True, do_plot=False):
@@ -106,7 +121,7 @@ class ParticleAnalyser:
             # compute bilateral filtering
             filter = 0.1
             img_gray = self._bilateral_filtering(img_gray, filter, filter)
-            # img_gray = np.array(img_gray, dtype=np.uint8)
+            # img_gray = np.array(img_gray, dtye=np.uint8)
             if do_plot:
                 _, ax = plt.subplots()
                 ax.imshow(img_gray, cmap="gray")
@@ -117,16 +132,26 @@ class ParticleAnalyser:
             binary = self._threshold_image(np.array(img_gray, dtype=np.uint8), chkbx)
             if do_plot:
                 _, ax = plt.subplots()
-                ax.imshow(binary, cmap="gray")
-                ax.set_title("OTSU")
+                ax.imshow(binary, cmap="gray", origin="lower")
+                xticks = ax.get_xticks()
+                yticks = ax.get_yticks()
+                ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+                ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+                ax.set_xlabel("X [px]", fontsize=20)
+                ax.set_ylabel("Y [px]", fontsize=20)
                 plt.show()
 
             if do_post_binary:
                 binary = self._postprocess_binary(binary, params, chkbx)
                 if do_plot:
                     _, ax = plt.subplots()
-                    ax.imshow(binary, cmap="gray")
-                    ax.set_title("BINARY")
+                    ax.imshow(binary, cmap="gray", origin="lower")
+                    xticks = ax.get_xticks()
+                    yticks = ax.get_yticks()
+                    ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+                    ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+                    ax.set_xlabel("X [px]", fontsize=20)
+                    ax.set_ylabel("Y [px]", fontsize=20)
                     plt.show()
             
             return np.array(binary/np.max(binary)*255, dtype=np.uint8)
@@ -192,34 +217,70 @@ class ParticleAnalyser:
             label_offset = labeled_image.max()
             # plt.show()
         
-        # # watershed segmentation
-        # distance = distance_transform_edt(binary)
-        # if do_plot:
-        #     _, ax = plt.subplots()
-        #     ax.imshow(distance, cmap="gray")
-        #     ax.set_title("DISTANCE")
-        #     plt.show()
+        # watershed segmentation
+        distance = distance_transform_edt(binary)
+        if do_plot:
+            _, ax = plt.subplots()
+            ax.imshow(distance, cmap="gray", origin="lower")
+            # ax.set_title("GRAY")
+            xticks = ax.get_xticks()[1:-1]
+            yticks = ax.get_yticks()[1:-1]
+            ax.set_xticks(xticks)
+            ax.set_yticks(yticks)
+            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+            ax.set_xlabel("X [px]", fontsize=20)
+            ax.set_ylabel("Y [px]", fontsize=20)
+            plt.show()
+
         
-        # mask = morphology.h_maxima(distance, h=params["h_max"])
-        # if do_plot:
-        #     _, ax = plt.subplots()
-        #     ax.imshow(mask, cmap="gray")
-        #     ax.set_title("MARKERS")
-        #     plt.show()
+        mask = morphology.h_maxima(distance, h=params["h_max"])
+        if do_plot:
+            _, ax = plt.subplots()
+            ax.imshow(mask, cmap="gray", origin="lower")
+            # ax.set_title("GRAY")
+            xticks = ax.get_xticks()[1:-1]
+            yticks = ax.get_yticks()[1:-1]
+            ax.set_xticks(xticks)
+            ax.set_yticks(yticks)
+            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+            ax.set_xlabel("X [px]", fontsize=20)
+            ax.set_ylabel("Y [px]", fontsize=20)
+            plt.show()
+
         
-        # markers = measure.label(mask)
-        # if do_plot:
-        #     _, ax = plt.subplots()
-        #     ax.imshow(markers, cmap="gray")
-        #     ax.set_title("Markers")
-        #     plt.show()
+        markers = measure.label(mask)
+        if do_plot:
+            _, ax = plt.subplots()
+            ax.imshow(markers, cmap="gray", origin="lower")
+            # ax.set_title("GRAY")
+            xticks = ax.get_xticks()[1:-1]
+            yticks = ax.get_yticks()[1:-1]
+            ax.set_xticks(xticks)
+            ax.set_yticks(yticks)
+            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+            ax.set_xlabel("X [px]", fontsize=20)
+            ax.set_ylabel("Y [px]", fontsize=20)
+            plt.show()
+
         
-        # labeled_image = watershed(-distance, markers, mask=binary)
-        # if do_plot:
-        #     _, ax = plt.subplots()
-        #     ax.imshow(labeled_image, cmap="gray")
-        #     ax.set_title("WATERSHED")
-        #     plt.show()
+        labeled_image = watershed(-distance, markers, mask=binary)
+        if do_plot:
+            _, ax = plt.subplots()
+            ax.imshow(labeled_image, cmap="gray", origin="lower")
+            # ax.set_title("GRAY")
+            xticks = ax.get_xticks()[1:-1]
+            yticks = ax.get_yticks()[1:-1]
+            ax.set_xticks(xticks)
+            ax.set_yticks(yticks)
+            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+            ax.set_xlabel("X [px]", fontsize=20)
+            ax.set_ylabel("Y [px]", fontsize=20)
+            plt.show()
+
 
         all_data = self._extract_particle_data(
             labeled_image,
@@ -287,9 +348,33 @@ class ParticleAnalyser:
         
         if chkbx["fill_holes"]:
             binary = binary_fill_holes(binary)
+            _, ax = plt.subplots()
+            ax.imshow(binary, cmap="gray", origin="lower")
+            # ax.set_title("GRAY")
+            xticks = ax.get_xticks()[1:-1]
+            yticks = ax.get_yticks()[1:-1]
+            ax.set_xticks(xticks)
+            ax.set_yticks(yticks)
+            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+            ax.set_xlabel("X [px]", fontsize=20)
+            ax.set_ylabel("Y [px]", fontsize=20)
+            plt.show()
         if chkbx["remove_small"]:
             min_size = int(params.get("small_objects"))
             binary = morphology.remove_small_objects(binary, min_size)
+            _, ax = plt.subplots()
+            ax.imshow(binary, cmap="gray", origin="lower")
+            # ax.set_title("GRAY")
+            xticks = ax.get_xticks()[1:-1]
+            yticks = ax.get_yticks()[1:-1]
+            ax.set_xticks(xticks)
+            ax.set_yticks(yticks)
+            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+            ax.set_xlabel("X [px]", fontsize=20)
+            ax.set_ylabel("Y [px]", fontsize=20)
+            plt.show()
         if chkbx["clear_border"]:
             binary = clear_border(binary)
         return binary
@@ -521,14 +606,14 @@ class ImageViewer(QWidget):
         for canvas in self.canvases:
             self.layout.removeWidget(canvas)
             canvas.hide()
-            # canvas.setParent(None)
-            # canvas.deleteLater()
+            canvas.setParent(None) #
+            canvas.deleteLater() #
         
         for toolbar in self.toolbars:
             self.layout.removeWidget(toolbar)
             toolbar.hide()
-            # toolbar.setParent(None)
-            # toolbar.deleteLater()
+            toolbar.setParent(None) #
+            toolbar.deleteLater() #
         
         self.canvases.clear()
         self.toolbars.clear()
@@ -543,7 +628,7 @@ class ImageViewer(QWidget):
         fig = Figure()
         ax = fig.add_subplot(111)
         
-        ax.imshow(img, cmap="gray", aspect="auto")
+        ax.imshow(img, cmap="gray", aspect="auto", origin="lower")
         ax.set_aspect("equal", adjustable="box")
 
         # display data

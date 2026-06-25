@@ -125,6 +125,10 @@ class HelperTab4(QWidget):
                 "func": self.visualization_func.Visualize_velocity_flow,
                 "settings": VelocityFlowSettings(),
             },
+            "Friction velocity": {
+                "func": self.visualization_func.Visualize_friction_velocity,
+                "settings": FrictionVelocitySettings(),
+            },
             "Velocity": {
                 "func": self.visualization_func.Visualize_velocity,
                 "settings": ParticlesVelocitySettings(),
@@ -250,6 +254,7 @@ class HelperTab4(QWidget):
                 "Resuspended fraction",
                 "Remaining fraction",
                 "Velocity flow",
+                "Friction velocity",
                 "Surface concentration",
                 "Mean diameter",
                 "Velocity",
@@ -315,6 +320,38 @@ class HelperTab4(QWidget):
 
         labels_layout.addStretch()
         left_layout.addLayout(labels_layout)
+        
+        # ----- Pixel size
+        pixelSize_layout = QHBoxLayout()
+        self.pixelSize_label = QLabel("Pixel size [mm/px]")
+        self.pixelSize_label.setFont(self.parent.font_content)
+        self.pixelSize_label.setAlignment(Qt.AlignCenter)
+        self.pixelSize_label.setFixedWidth(80)
+        pixelSize_layout.addWidget(self.pixelSize_label)
+
+        self.pixelSize_textbox = QLineEdit()
+        self.pixelSize_textbox.setPlaceholderText("1")
+        self.pixelSize_textbox.setFixedWidth(150)
+        pixelSize_layout.addWidget(self.pixelSize_textbox)
+
+        pixelSize_layout.addStretch()
+        left_layout.addLayout(pixelSize_layout)
+
+        # ----- Acquisition frequency
+        acqFreq_layout = QHBoxLayout()
+        self.acqFreq_label = QLabel("Acquisition frequency [Hz]")
+        self.acqFreq_label.setFont(self.parent.font_content)
+        self.acqFreq_label.setAlignment(Qt.AlignCenter)
+        self.acqFreq_label.setFixedWidth(80)
+        acqFreq_layout.addWidget(self.acqFreq_label)
+
+        self.acqFreq_textbox = QLineEdit()
+        self.acqFreq_textbox.setPlaceholderText("1")
+        self.acqFreq_textbox.setFixedWidth(150)
+        acqFreq_layout.addWidget(self.acqFreq_textbox)
+
+        acqFreq_layout.addStretch()
+        left_layout.addLayout(acqFreq_layout)   
 
         # ----- Options
         self.option_btn = QPushButton(tab_4)
@@ -517,6 +554,16 @@ class HelperTab4(QWidget):
             labels = self._parse_labels(labels_text)
         else:
             labels = None
+        
+        # read pixel size
+        if self.pixelSize_textbox.text():
+            pixelSize = float(self.pixelSize_textbox.text())
+        else: pixelSize = 1
+
+        # read acquisition frequency
+        if self.acqFreq_textbox.text():
+            acqFreq = float(self.acqFreq_textbox.text())
+        else: acqFreq = 1
 
         # clear graph container
         self.viewer._clear()
@@ -539,9 +586,10 @@ class HelperTab4(QWidget):
 
             self.data_to_plot = {
                 "dataframe": dataframe,
-                "pixel_size": 0.006,
+                "pixel_size": pixelSize,
                 "frames": frames,
                 "labels": labels,
+                "acquisition_freq": acqFreq,
             }
 
             # function informations
@@ -561,7 +609,7 @@ class HelperTab4(QWidget):
                     pixel_size=self.data_to_plot["pixel_size"],
                     frames=self.data_to_plot["frames"],
                     labels=self.data_to_plot["labels"],
-                    time_interval=1/8000, # 1/parameters["acq_frequency"],
+                    time_interval=1/self.data_to_plot["acquisition_freq"],
                     x_unit=self.settings.x_axis,
                     y_unit=self.settings.y_axis,
                     velocity=self.velocity_profile if self.velocity_profile else None,
@@ -723,12 +771,14 @@ class ImageViewer(QWidget):
 
             if "histogram" in data:
                 self.plot_1d(data)
+                self._format_axes(data)
 
             elif "curves" in data:
                 self.plot_1d(data)
 
             elif "hist_3d" in data:
                 self.plot_1d(data)
+                self._format_axes(data)
 
             elif "image" in data:
                 self.plot_2d(data)
@@ -736,9 +786,7 @@ class ImageViewer(QWidget):
             else:
                 msg = "No key word detected"
                 raise ValueError(msg)
-            
-            self._format_axes(data)
-
+        
     def plot_1d(self, data_dict: dict):
         """Display 1d graph"""
 
@@ -799,9 +847,10 @@ class ImageViewer(QWidget):
                 data_x = data_dict["x"][i]
                 data_y = data_dict["y"][i]
 
+                # remove same position to not overload graph
                 data_all = np.column_stack((data_x, data_y))
                 _, indices = np.unique(data_all, axis=0, return_index=True)
-                data_all = data_all[indices]  # * data_dict["unit"]
+                data_all = data_all[indices]
 
                 self.ax.scatter(
                     data_all[:, 0],
@@ -813,15 +862,15 @@ class ImageViewer(QWidget):
                 if "vx" in data_dict.keys() and "vy" in data_dict.keys():
                     from matplotlib.patches import FancyArrowPatch
 
-                    data_arrow_x = data_dict["vx"][i][indices]  # * data_dict["unit"]
-                    data_arrow_y = data_dict["vy"][i][indices]  # * data_dict["unit"]
+                    data_arrow_x = data_dict["vx"][i][indices]
+                    data_arrow_y = data_dict["vy"][i][indices]
 
                     norm = np.sqrt(
                         (
                             data_dict["vx"][i][indices] ** 2
                             + data_dict["vx"][i][indices] ** 2
                         )
-                    )
+                    ) * 0.01
                     data_arrow_x = data_dict["vx"][i][indices] / norm
                     data_arrow_y = data_dict["vy"][i][indices] / norm
 
@@ -909,24 +958,29 @@ class ImageViewer(QWidget):
         # cbar.set_ticks(cbar_ticks)
         # cbar.set_ticklabels([f"{cbar_tick:.2f}" for cbar_tick in cbar_ticks], fontsize=self.dict_fontsize["ticks"])
         # cbar.set_label("Time displacement", fontsize=self.dict_fontsize["label"])
-
+        
+        number_ticks = 5
+        self.ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(number_ticks))
         x_ticks = self.ax.get_xticks()[1:-1]
-        y_ticks = self.ax.get_yticks()[1:-1]
-
         self.ax.set_xticks(x_ticks)
-        self.ax.set_yticks(y_ticks)
-
-        self.ax.set_xlabel(data_dict["x_label"], fontsize=self.dict_fontsize["label"])
-        self.ax.set_ylabel(data_dict["y_label"], fontsize=self.dict_fontsize["label"])
-
         self.ax.set_xticklabels(
-            [f"{x_tick * self.pixel_size:.1f}" for x_tick in x_ticks],
-            fontsize=self.dict_fontsize["ticks"],
-        )
+                self._number_of_ticks(x_ticks, factor=data_dict["x_unit"], min_decimal=data_dict["min_decimals_x"]),
+                fontsize=self.dict_fontsize["ticks"],
+            )
+        self.ax.set_xlabel(
+            data_dict["x_label"], fontsize=self.dict_fontsize["label"]
+            )
+
+        self.ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(number_ticks))
+        y_ticks = self.ax.get_yticks()[1:-1]
+        self.ax.set_yticks(y_ticks)
         self.ax.set_yticklabels(
-            [f"{y_tick * self.pixel_size:.3f}" for y_tick in y_ticks],
-            fontsize=self.dict_fontsize["ticks"],
-        )
+                self._number_of_ticks(y_ticks, factor=data_dict["y_unit"], min_decimal=data_dict["min_decimals_y"]),
+                fontsize=self.dict_fontsize["ticks"],
+            )
+        self.ax.set_ylabel(
+            data_dict["y_label"], fontsize=self.dict_fontsize["label"]
+            )
 
         self.ax.legend(
             # handles=legend_elements, #[f"{1*mag_order} m/s"]*len(legend_elements),
@@ -961,9 +1015,9 @@ class ImageViewer(QWidget):
         data_y_all = []
         data_z_all = []
 
-        print(f"Coord number {data_dict['x']}")
-        print(f"Occurence : {data_dict['y']} ({sum[data_dict['y']]})")
-        print(f"Time : {data_dict['z']}")
+        # print(f"Coord number {data_dict['x']}")
+        # print(f"Occurence : {data_dict['y']} ({sum[data_dict['y']]})")
+        # print(f"Time : {data_dict['z']}")
 
         for i in range(len(data_dict["x"])):
             x = np.array(data_dict["x"][i] * data_dict["x_unit"])[:-1] - 0.5
@@ -1152,9 +1206,13 @@ class ImageViewer(QWidget):
                 data_dict["y"][i],
                 color=colors(i),
                 linewidth=3,
-                label=f"Run {i}"
-                if "run" in data_dict
-                else f"Label {data_dict['label'][i][0]}",
+                label=(
+                    f"Run {i}"
+                    if "run" in data_dict and len(data_dict["run"]) > 1
+                    else f"Label {data_dict['label'][i][0]}"
+                    if "label" in data_dict
+                    else None
+                )
             )
 
             if "fit" in data_dict:
@@ -1174,6 +1232,55 @@ class ImageViewer(QWidget):
                         linewidth=3,
                         linestyle="dashed",
                         label=f"Fluid velocity at $r_p({data_dict['label'][i][0]})$",
+                    )
+
+            if "uncertainties" in data_dict:
+                if "fit_params" in data_dict:
+                    a, b, a_err, b_err = data_dict["fit_params"][i]
+                else: a, b= np.polyfit(data_dict["x"][i], data_dict["y"][i], 1)
+                print(a, b)
+                print(f"r2 = {np.corrcoef(data_dict['x'][i], data_dict['y'][i])[0,1]**2:.3f}")
+
+                fit = a * data_dict["x"][i] + b
+                residus = data_dict["y"][i].to_numpy() - fit
+                s = np.std(residus, ddof=2)
+                y_sup = fit + 3*s # at 95%
+                y_inf = fit - 3*s # at 95%
+                
+                self.ax.plot(
+                        data_dict["x"][i],
+                        a*data_dict["x"][i]+b,
+                        color="tab:red",
+                        linewidth=3,
+                        label=f"Fit with parameters : a={a:.2e} and b={b:.2e}",
+                        )
+
+                self.ax.fill_between(
+                    data_dict["x"][i],
+                    y_sup, y_inf,
+                    label="confidence interval at $\pm 3 \sigma$",
+                    linewidth=3,
+                    color="k",
+                    alpha=0.3,
+                    zorder=2,
+                    )
+                
+                self.ax.plot(
+                    data_dict["x"][i],
+                    y_inf,
+                    linewidth=3,
+                    color="k",
+                    alpha=0.5,
+                    zorder=2,
+                    )
+                
+                self.ax.plot(
+                    data_dict["x"][i],
+                    y_sup,
+                    linewidth=3,
+                    color="k",
+                    alpha=0.5,
+                    zorder=2,
                     )
 
     def _plot_scatter(self, data_dict: dict):
@@ -1236,7 +1343,7 @@ class ImageViewer(QWidget):
 
         # x_axis_log
         if "x_log" in data_dict:
-            self.ax.set_xscale("symlog")
+            if data_dict["x_log"]: self.ax.set_xscale("symlog")
 
         if "z_label" in data_dict:
             x_ticks = np.linspace(
@@ -1279,10 +1386,11 @@ class ImageViewer(QWidget):
         else:
             number_ticks = 5
             self.ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(number_ticks))
-            x_ticks = self.ax.get_xticks()[1:-1]
+            x_ticks = self.ax.get_xticks()[1:]
             self.ax.set_xticks(x_ticks)
+            print(x_ticks, data_dict["x_unit"], data_dict["min_decimals_x"], data_dict["x_ticks_sci"])
             self.ax.set_xticklabels(
-                self._number_of_ticks(x_ticks, min_decimal=data_dict["min_decimals_x"]),
+                self._number_of_ticks(x_ticks, factor=data_dict["x_unit"], min_decimal=data_dict["min_decimals_x"], sci=data_dict["x_ticks_sci"]),
                 fontsize=self.dict_fontsize["ticks"],
             )
             self.ax.set_xlabel(
@@ -1293,7 +1401,7 @@ class ImageViewer(QWidget):
             y_ticks = self.ax.get_yticks()[1:-1]
             self.ax.set_yticks(y_ticks)
             self.ax.set_yticklabels(
-                self._number_of_ticks(y_ticks, min_decimal=data_dict["min_decimals_y"]),
+                self._number_of_ticks(y_ticks, factor=data_dict["y_unit"], min_decimal=data_dict["min_decimals_y"], sci=data_dict["y_ticks_sci"]),
                 fontsize=self.dict_fontsize["ticks"],
             )
             self.ax.set_ylabel(
@@ -1306,19 +1414,19 @@ class ImageViewer(QWidget):
         
         plt.subplots_adjust(0, 0, 1, 1)
 
-    def _number_of_ticks(self, ticks, min_decimal=0, number_ticks=5):
-        """Adapt number of ticks"""
+    def _number_of_ticks(self, ticks, factor=1.0, min_decimal=0, number_ticks=5, sci=False):
+        """ Adapt number of ticks """
 
         inc = min_decimal
-        temp_ticks = [f"{tick:.{int(inc)}f}" for tick in ticks]
+        while True:
+            
+            if sci: temp_ticks = [f"{tick*factor:.{inc}e}" for tick in ticks]
+            else: temp_ticks = [f"{tick*factor:.{inc}f}" for tick in ticks]
 
-        unique = np.unique(temp_ticks)
-        while len(unique) != len(ticks):
+            if len(np.unique(temp_ticks)) == len(ticks):
+                return temp_ticks
+            
             inc += 1
-            temp_ticks = [f"{tick:.{int(inc)}f}" for tick in ticks]
-            unique = np.unique(temp_ticks)
-
-        return temp_ticks
 
 class SupportFunctions:
     def __init__(self):
@@ -1958,7 +2066,25 @@ class VelocityFlowSettings:
         }
         # Y axis
         self.y_axis_options = {
-            "px/s",
+            "mm/s",
+            "m/s",
+        }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "m/s"
+
+class FrictionVelocitySettings:
+    """Store configuration for frcition velocity"""
+
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+        }
+        # Y axis
+        self.y_axis_options = {
             "mm/s",
             "m/s",
         }
@@ -1981,7 +2107,6 @@ class ParticlesVelocitySettings:
         }
         # Y axis
         self.y_axis_options = {
-            "px/s": "px/s",
             "mm/s": "mm/s",
             "m/s": "m/s",
         }
@@ -2010,7 +2135,7 @@ class ParticleAccelerationSettings:
         }
         # default selection
         self.x_axis = "time"
-        self.y_axis = "mm/s2"
+        self.y_axis = "m/s2"
 
 
 class ParticleMomentumSettings:
@@ -2032,7 +2157,7 @@ class ParticleMomentumSettings:
         }
         # default selection
         self.x_axis = "time"
-        self.y_axis = "kg.mm/s"
+        self.y_axis = "kg.m/s"
 
 
 class ParticleKineticEnergySettings:
@@ -2049,13 +2174,14 @@ class ParticleKineticEnergySettings:
         }
         # Y axis
         self.y_axis_options = {
+            "J",
             "uJ",
             "nJ",
             "pJ",
         }
         # default selection
         self.x_axis = "time"
-        self.y_axis = "pJ"
+        self.y_axis = "J"
 
 
 class ParticleMeanSquareDisplacementSettings:

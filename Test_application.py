@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QTabWidget, QVBo
 # support function for each tab
 import Layout_tab_1 as layout_tab_1
 import Layout_tab_2 as layout_tab_2
-import Layout_tab_3 as layout_tab_3
+# import Layout_tab_3 as layout_tab_3
 import Layout_tab_4 as layout_tab_4
 
 class ParticleAnalysisApp(QMainWindow):
@@ -65,7 +65,7 @@ class ParticleAnalysisApp(QMainWindow):
         # ui_path = Path(__file__).parent / "ParticlesAnalysis.ui"
         # uic.loadUi(ui_path, self)
         
-        self.setWindowTitle("Analysis of particles images from BISE")
+        self.setWindowTitle("BIRD for BISE Image Recognition and Detection")
         
         # create global layout
         central_widget = QWidget()
@@ -79,7 +79,7 @@ class ParticleAnalysisApp(QMainWindow):
         # initialize helper for each tabs
         self.helper_tab_1 = layout_tab_1.HelperTab1(parent=self)
         self.helper_tab_2 = layout_tab_2.HelperTab2(parent=self)
-        self.helper_tab_3 = layout_tab_3.HelperTab3(parent=self)
+        # self.helper_tab_3 = layout_tab_3.HelperTab3(parent=self)
         self.helper_tab_4 = layout_tab_4.HelperTab4(parent=self)
         
         self.add_tabs()
@@ -96,8 +96,6 @@ class ParticleAnalysisApp(QMainWindow):
         # self.tabs.addTab(self.helper_tab_4, "Tab 4")
     
 def main():
-    # p = psutil.Process()
-    # p.cpu_affinity([0])
     app = QApplication(sys.argv)
     win = ParticleAnalysisApp()
     win.showMaximized()

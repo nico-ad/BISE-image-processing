@@ -137,9 +137,10 @@ def _load_image_core(image_path, invert, rotate_angle=0, crop=None) -> np.ndarra
 
 
 def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
-    """Analyse image patch"""
+    """ Analyse image patch """
 
     all_data = []
+
     img = _load_image_core(
         img_path,
         invert=params["invert_grayscale"],
@@ -213,9 +214,10 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
 
         return refined_coords
 
-    # filter = 0.1
-    # bilateral = _bilateral_filtering(img, filter, filter)
-    # img = bilateral.copy()
+    # smooth image
+    filter = 0.1
+    bilateral = _bilateral_filtering(img, filter, filter)
+    img = bilateral.copy()
 
     # compute thresholding
     threshold = filters.threshold_otsu(img)
@@ -231,50 +233,44 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
         )
     binary = clear_border(binary)
 
-    labeled_image = np.zeros_like(binary, dtype=np.int32)
-    label_offset = 0
-    for region in regionprops(measure.label(binary)):
+    binary_labeled = measure.label(binary)
 
-        fig, ax = plt.subplots()
+    # automatic center detection
+    labeled_image = np.zeros_like(binary_labeled, dtype=np.int32)
+    label_offset = 0
+    for region in regionprops(binary_labeled):
+
+        minr, minc, maxr, maxc = region.bbox
 
         # extract object from image
-        object = region.image
-        ax.imshow(object)
+        mask_object = np.array(region.image, dtype=np.uint8)
 
-        # compute EDT from object ()
+        # crop object in gray image 
+        object_gray = np.where(mask_object, img[minr:maxr, minc:maxc], 0)
+        object_gray =np.array(object_gray/np.max(object_gray)*255, dtype=np.uint8)
+
+        # pre-process object
+        threshold = filters.threshold_otsu(_bilateral_filtering(object_gray, filter, filter))
+        object = object_gray > threshold
+
+        # compute EDT from object
         distance = distance_transform_edt(object)
-        ax.imshow(distance)
 
+        # compute h-maxima
         maxima = morphology.h_maxima(distance, h=params["h_max"])
-        ax.imshow(maxima)
 
-        markers = label(maxima)
-        ax.imshow(markers)
+        # compute markers
+        markers = measure.label(maxima)
 
+        # compute watershed
         labels_local = watershed(-distance, markers, mask=object)
 
         # replace object analysed in original image
-        minr, minc, maxr, maxc = region.bbox
         labels_local[labels_local > 0] += label_offset
-        labeled_image[minr:maxr, minc:maxc][labels_local > 0]
+        labeled_image[minr:maxr, minc:maxc][labels_local > 0] = labels_local[labels_local > 0]
 
         # update offset
         label_offset = labeled_image.max()
-        plt.show()
-
-    ####### ADD FUNCTION to have better h maxima local !!!!!
-
-    # distance = distance_transform_edt(binary)
-
-    # mask = morphology.h_maxima(distance, h=params["h_max"])
-
-    # markers = measure.label(mask)
-    
-    # labeled_image = watershed(-distance, markers, mask=binary)
-
-    ## OUTPUT FUNCTION !!!!!
-
-    
 
     if params["circ_thresh"] is None:
         mean_circularity = np.mean(
@@ -305,8 +301,8 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
 
             start_frame = None
             if start_frame is None:
-                # curr_frame = int(str(Path(img_path).name).split(".")[2].split("-")[0])
-                curr_frame = int(str(Path(img_path).name).split("_")[4])
+                curr_frame = int(str(Path(img_path).name).split(".")[2].split("-")[0])
+                # curr_frame = int(str(Path(img_path).name).split("_")[4])
 
             if circ_thresh[0] <= circularity <= circ_thresh[1]:
                 centroid = prop.centroid
@@ -1143,11 +1139,24 @@ class ParticleAnalyser(QObject):
     def Assign_ID_ROI(
         dataframe: pd.DataFrame = None,
         max_dist: int = None,  # px
-        do_plot: bool = False,
-        language: str = "en",
-        unit: str = "px",
+        do_plot: bool = True,
         labels_used: str = "global",
+        dict_font: dict = None,
     ):
+        
+        dict_fontsize = {
+            "label": 18,
+            "ticks": 18,
+            "legend": 16,
+            "subplots": {
+                "left": 0.075,
+                "bottom": 0.090,
+                "right": 0.930,
+                "top": 0.97,
+                "wspace": 0.0,
+                "hspace": 0.0,
+            },
+        }
 
         def _generate_roi(
             x_min: int,
@@ -1193,7 +1202,7 @@ class ParticleAnalyser(QObject):
         def _assign_global_labels(
             df: pd.DataFrame = None,
             max_dist: int = None,
-            do_plot: bool = False,
+            do_plot: bool = True,
         ):
 
             df = df.copy()
@@ -1220,12 +1229,17 @@ class ParticleAnalyser(QObject):
                     continue
                 else:
                     cost = cdist(prev_pos, curr_pos)
-                    cost[cost > max_dist] = 1e4
+                    cost[cost > max_dist] = 1e2
 
                 # display cost matrix
-                if do_plot:
-                    _, ax = plt.subplots()
-                    ax.imshow(cost)
+                if do_plot or True:
+
+                    _, ax = plt.subplots(figsize=(9, 9))
+                    ax.imshow(cost, cmap=plt.get_cmap("plasma"))
+
+                    ax.set_xticks(np.arange(-0.5, cost.shape[1], 1), minor=True)
+                    ax.set_yticks(np.arange(-0.5, cost.shape[0], 1), minor=True)
+                    ax.grid(True, which="minor", color="k")
 
                     n_labels = max(cost.shape)
 
@@ -1240,38 +1254,26 @@ class ParticleAnalyser(QObject):
                     colors = base_map(np.linspace(0, 1, ncolors))
                     cmap = mcolors.ListedColormap(colors)
 
-                    ax.set_xlim(0, cost.shape[1])
-                    ax.set_ylim(0, cost.shape[0])
+                    ax.set_xlim(-0.5, cost.shape[1]-0.5)
+                    ax.set_ylim(-0.5, cost.shape[0]-0.5)
 
-                    x_ticks = ax.get_xticks()[:-1]
-                    y_ticks = ax.get_yticks()[:-1]
+                    x_ticks = ax.get_xticks()[1:-1]
+                    y_ticks = ax.get_yticks()[1:-1]
 
                     ax.set_xticks(x_ticks)
                     ax.set_yticks(y_ticks)
 
                     ax.set_xticklabels(
-                        [f"{x_tick:.0f}" for x_tick in x_ticks]
-                    )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
-                    if language == "fr":
-                        ax.set_xlabel(
-                            "Particles detectées à l'image précédente"
-                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-                    if language == "en":
-                        ax.set_xlabel(
-                            "Detected particles in previous frame"
-                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+                        [f"{x_tick:.0f}" for x_tick in x_ticks], fontsize=dict_fontsize["ticks"])
+                    ax.set_xlabel(
+                        "Particles detected in current frame", fontsize=dict_fontsize["label"]
+                        )
 
                     ax.set_yticklabels(
-                        [f"{y_tick:.0f}" for y_tick in y_ticks]
-                    )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
-                    if language == "fr":
-                        ax.set_ylabel(
-                            "Particles detectées à l'image courante"
-                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-                    if language == "en":
-                        ax.set_ylabel(
-                            "Detected particles in current frame"
-                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+                        [f"{y_tick:.0f}" for y_tick in y_ticks], fontsize=dict_fontsize["ticks"])
+                    ax.set_ylabel(
+                        "Particles detected in next frame", fontsize=dict_fontsize["label"]
+                        )
 
                     norm = mcolors.BoundaryNorm(
                         np.arange(np.min(cost), np.max(cost) + 2, 1), ncolors=ncolors
@@ -1279,7 +1281,7 @@ class ParticleAnalyser(QObject):
 
                     norm = plt.Normalize(vmin=np.min(cost), vmax=np.max(cost))
                     sm = plt.cm.ScalarMappable(
-                        cmap=cmap,
+                        cmap=plt.get_cmap("plasma"),
                         norm=norm,
                     )
                     sm.set_array([])
@@ -1287,21 +1289,16 @@ class ParticleAnalyser(QObject):
                     cbar_ticks = cbar.get_ticks()
                     cbar.set_ticks(cbar_ticks)
                     cbar.set_ticklabels(
-                        [f"{np.abs(cbar_tick):.0f}" for cbar_tick in cbar_ticks]
-                    )  # , fontsize=ParticleAnalyser.dict_fontsize["ticks"])
-                    if language == "fr":
-                        cbar.set_label(
-                            "Coût"
-                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
-                    if language == "en":
-                        cbar.set_label(
-                            "Cost"
-                        )  # , fontsize=ParticleAnalyser.dict_fontsize["label"])
+                        [f"{np.abs(cbar_tick):.0f}" for cbar_tick in cbar_ticks], fontsize=dict_fontsize["ticks"]
+                        )
+                    cbar.set_label(
+                        "Cost", fontsize=dict_fontsize["label"]
+                        )
 
                     # plt.show()
-                    # plt.savefig(
-                    #     f"/home/abad-ale/Documents/Images_Assign_ID/100/Cost_matrix_frame_{t}_dist_{max_dist}.png"
-                    # )
+                    plt.savefig(
+                        f"//home/abad-ale/Documents/Images_analysis/Essai_7/8000Hz/4x10mm3/1/Cost_matrix_frame_{t}_dist_{max_dist}.png"
+                    )
 
                 gids = np.full(n, -1, dtype=int)
                 if not (
@@ -1407,9 +1404,7 @@ class ParticleAnalyser(QObject):
 
             for frame_id, group_frames in df_tracked.groupby("frame"):
 
-                _, ax = plt.subplots()
-
-                ax.set_title(f"Frame : {frame_id}")
+                _, ax = plt.subplots(figsize=(6, 6))
 
                 # ----- add image
                 path_img = Path(
@@ -1420,18 +1415,18 @@ class ParticleAnalyser(QObject):
                 ax.imshow(img, cmap="gray")
 
                 # ----- add ROIs
-                for roi in rois:
-                    x0, y0, x1, y1 = roi
-                    width, height = x1 - x0, y1 - y0
-                    rect = patches.Rectangle(
-                        (x0, y0),
-                        width,
-                        height,
-                        edgecolor="black",
-                        facecolor="tab:red",
-                        alpha=0.2,
-                    )
-                    ax.add_patch(rect)
+                # for roi in rois:
+                #     x0, y0, x1, y1 = roi
+                #     width, height = x1 - x0, y1 - y0
+                #     rect = patches.Rectangle(
+                #         (x0, y0),
+                #         width,
+                #         height,
+                #         edgecolor="black",
+                #         facecolor="tab:red",
+                #         alpha=0.2,
+                #     )
+                #     ax.add_patch(rect)
 
                 # ----- add labels
                 for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
@@ -1439,7 +1434,7 @@ class ParticleAnalyser(QObject):
                     ax.scatter(
                         group_labels["x"],
                         group_labels["y"],
-                        color=cmap(i),
+                        color="tab:orange", # cmap(i),
                         marker="o",
                         alpha=1.0,
                     )
@@ -1449,11 +1444,13 @@ class ParticleAnalyser(QObject):
                         group_labels["x"], group_labels["y"], group_labels["diameter"]
                     ):
                         # add equivalent diameter
-                        ax.add_patch(plt.Circle((x, y), d / 2, color="b", fill=False))
+                        ax.add_patch(
+                            plt.Circle((x, y), d / 2, color="b", fill=False, lw=3)
+                            )
 
                         # add neighboor distance
                         ax.add_patch(
-                            plt.Circle((x, y), max_dist, color="r", fill=False)
+                            plt.Circle((x, y), max_dist, color="r", fill=False, lw=3)
                         )
 
                 ax.set_xlim(0, img_size[1])
@@ -1465,14 +1462,14 @@ class ParticleAnalyser(QObject):
                 ax.set_xticks(x_ticks)
                 ax.set_yticks(y_ticks)
 
-                ax.set_xlabel("x [px]")  # , fontsize=self.dict_fontsize["label"])
-                ax.set_ylabel("y [px]")  # , fontsize=self.dict_fontsize["label"])
+                ax.set_xlabel("x [px]", fontsize=dict_fontsize["label"])
+                ax.set_ylabel("y [px]", fontsize=dict_fontsize["label"])
                 ax.set_xticklabels(
-                    [f"{x_tick:.0f}" for x_tick in x_ticks]
-                )  # , fontsize=self.dict_fontsize["ticks"])
+                    [f"{x_tick:.0f}" for x_tick in x_ticks], fontsize=dict_fontsize["ticks"]
+                    )
                 ax.set_yticklabels(
-                    [f"{y_tick:.0f}" for y_tick in y_ticks]
-                )  # , fontsize=self.dict_fontsize["ticks"])
+                    [f"{y_tick:.0f}" for y_tick in y_ticks], fontsize=dict_fontsize["ticks"]
+                    )
 
                 # add colorbar
                 # sm = plt.cm.ScalarMappable(
@@ -1500,10 +1497,10 @@ class ParticleAnalyser(QObject):
                 #             # fontsize=self.dict_fontsize["ticks"],
                 #         )
 
-                plt.show()
-                # plt.savefig(
-                #     f"/home/abad-ale/Documents/Images_Assign_ID/Assign_ID_frame_{frame_id}.png"
-                # )
+                # plt.show()
+                plt.savefig(
+                    f"//home/abad-ale/Documents/Images_analysis/Essai_7/8000Hz/4x10mm3/1/Assign_ID_frame_{frame_id}_full_labels.png"
+                )
 
         return df_tracked
 

@@ -31,6 +31,8 @@ import seaborn as sns
 from inspect import signature
 from functools import partial
 
+import statsmodels.api as sm
+
 from skimage import io, measure, morphology, filters
 from skimage.measure import (
     label,
@@ -2378,11 +2380,12 @@ class VisualizationFunctions:
         frames: int | list | np.ndarray = None,
         labels: int | list | np.ndarray = None,
         pixel_size: float = None,
-        unit: str = "px",
+        time_interval: float = None,
+        x_unit: str = "mm",
+        y_unit: str = "mm",
         rotate: int = None,
         do_density_map: bool = False,
-        x_unit: str = None,
-        y_unit: str = None,
+        velocity = None,
     ) -> list:
 
         results = []
@@ -4167,8 +4170,11 @@ class VisualizationFunctions:
         labels: list | int = None,
         dataframe: pd.DataFrame = None,
         pixel_size: float = None,
+        time_interval: float = None,
         x_unit: str = "frames",
         y_unit: str = "m/s",
+        min_decimal_x = None,
+        min_decimal_y = None,
         do_save: bool = False,
         path_save: str | Path = None,
         velocity: pd.DataFrame = None,
@@ -4180,19 +4186,46 @@ class VisualizationFunctions:
         if path_save is not None and do_save is None:
             do_save = True
 
+        uncertainties = 0.03
+
         results = []
 
-        for ii, vel in enumerate(dataframe):
-            time_interval = vel["timestamp"].unique()
+        for ii, vel in enumerate(velocity):
+
+            # ----- frames
+            if frames is None:
+                selected_frames = vel["frame"].unique()
+            elif isinstance(frames, int):
+                selected_frames = [frames]
+            elif isinstance(frames, (list, np.ndarray)):
+                selected_frames = frames
+            else:
+                msg = "'frames' must be int, list or np.ndarray of int"
+                raise TypeError(msg)
+
+            # ----- filtering
+            mask = vel["frame"].isin(selected_frames)
+
+            sub_df = vel.loc[
+                mask, ["frame", "voltage", "velocity"]
+            ].copy()
+
+            if sub_df.empty:
+                continue
 
             unit_factor_x = {
-                "frames": time_interval,
-                "time": 1.0,
+                "frames": 1.0,
+                "time": time_interval,
             }[x_unit]
 
             unit_label_x = {
                 "frames": "",
                 "time": "s",
+            }[x_unit]
+            
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
             }[x_unit]
 
             unit_factor_y = {
@@ -4204,18 +4237,153 @@ class VisualizationFunctions:
                 "m/s": "m/s",
                 "mm/s": "mm/s",
             }[y_unit]
+            
+            min_decimals_y = {
+                "m/s": 3,
+                "mm/s": 3,
+            }[y_unit]
+
+            # compute linear regression + uncertainties on fit
+            X = sm.add_constant(sub_df["frame"].to_numpy() * unit_factor_x)
+            model = sm.OLS(sub_df["velocity"].to_numpy() * unit_factor_y, X) # Ordinary Least Squares
+            fitting = model.fit()
+            b, a = fitting.params
+            b_err, a_err = fitting.bse # standart error
+            ci = fitting.conf_int(alpha=0.05)
+            # print(f"a = {a:.3e} ($\pm$ {a_err:.3e}), with confidence interval at 95% : {ci[1, 0]:.3f} at {ci[1, 1]:.3f}")
+            # print(f"b = {b:.3e} ($\pm$ {b_err:.3e}), with confidence interval at 95% : {ci[0, 0]:.3f} at {ci[0, 1]:.3f}")
+            # print(f"r2 = {fitting.rsquared:.2f}")
 
             data_dict = {
                 "curves": True,
-                "x": [vel["timestamp"]],
-                "y": [vel["velocity"]],
+                "x": [sub_df["frame"]],
+                "y": [sub_df["velocity"]],
                 "run": [ii],
                 "x_log": False,
-                "label_curve": "Particle sizing distribution",
+                "label_curve": "Velocity in middle of the duct",
                 "x_unit": unit_factor_x,
                 "y_unit": unit_factor_y,
                 "x_label": f"Time [{unit_label_x}]",
                 "y_label": f"Velocity [{unit_label_y}]",
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": False,
+                "uncertainties": uncertainties,
+                "fit_params": [[a, b, a_err, b_err]],
+            }
+            results.append(data_dict)
+
+        return results
+    
+    def Visualize_friction_velocity(
+        self,
+        frames: list | int = None,
+        labels: list | int = None,
+        dataframe: pd.DataFrame = None,
+        pixel_size: float = None,
+        time_interval: float = None,
+        x_unit: str = "frames",
+        y_unit: str = "m/s",
+        min_decimal_x = None,
+        min_decimal_y = None,
+        do_save: bool = False,
+        path_save: str | Path = None,
+        velocity: pd.DataFrame = None,
+    ):
+
+        if path_save is None and do_save:
+            msg = "Must specify a path to save picture"
+            raise TypeError(msg)
+        if path_save is not None and do_save is None:
+            do_save = True
+
+        uncertainties = 0.03
+
+        results = []
+
+        for ii, vel in enumerate(velocity):
+
+            # ----- frames
+            if frames is None:
+                selected_frames = vel["frame"].unique()
+            elif isinstance(frames, int):
+                selected_frames = [frames]
+            elif isinstance(frames, (list, np.ndarray)):
+                selected_frames = frames
+            else:
+                msg = "'frames' must be int, list or np.ndarray of int"
+                raise TypeError(msg)
+
+            # ----- filtering
+            mask = vel["frame"].isin(selected_frames)
+
+            sub_df = vel.loc[
+                mask, ["frame", "voltage", "velocity"]
+            ].copy()
+
+            if sub_df.empty:
+                continue
+
+            if "friction" not in sub_df:
+                sub_df["friction"] = 0.0564 * sub_df["velocity"] ** (7 / 8)  # m/s
+
+            unit_factor_x = {
+                "frames": 1.0,
+                "time": time_interval,
+            }[x_unit]
+
+            unit_label_x = {
+                "frames": "",
+                "time": "s",
+            }[x_unit]
+            
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+            }[x_unit]
+
+            unit_factor_y = {
+                "m/s": 1,
+                "mm/s": 1000,
+            }[y_unit]
+
+            unit_label_y = {
+                "m/s": "m/s",
+                "mm/s": "mm/s",
+            }[y_unit]
+            
+            min_decimals_y = {
+                "m/s": 3,
+                "mm/s": 3,
+            }[y_unit]
+
+            # compute linear regression + uncertainties on fit
+            X = sm.add_constant(sub_df["frame"].to_numpy() * unit_factor_x)
+            model = sm.OLS(sub_df["friction"].to_numpy() * unit_factor_y, X) # Ordinary Least Squares
+            fitting = model.fit()
+            b, a = fitting.params
+            b_err, a_err = fitting.bse # standart error
+            ci = fitting.conf_int(alpha=0.05)
+            print(f"a = {a:.3e} ($\pm$ {a_err:.3e}), with confidence interval at 95% : {ci[1, 0]:.3f} at {ci[1, 1]:.3f}")
+            print(f"b = {b:.3e} ($\pm$ {b_err:.3e}), with confidence interval at 95% : {ci[0, 0]:.3f} at {ci[0, 1]:.3f}")
+
+            data_dict = {
+                "curves": True,
+                "x": [sub_df["frame"]],
+                "y": [sub_df["friction"]],
+                "run": [ii],
+                "x_log": False,
+                "label_curve": "Velocity in middle of the duct",
+                "x_unit": unit_factor_x,
+                "y_unit": unit_factor_y,
+                "x_label": f"Time [{unit_label_x}]",
+                "y_label": f"Velocity [{unit_label_y}]",
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": False,
+                "uncertainties": uncertainties,
             }
             results.append(data_dict)
 
@@ -4890,20 +5058,27 @@ class VisualizationFunctions:
     def Track_particles_velocity(
         self,
         dataframe: pd.DataFrame = None,
-        pixel_size: float = None,
-        frames: int | list | np.ndarray = None,
-        labels: int | list | np.ndarray = None,
-        path_save: Path | str = None,
+        velocity: pd.DataFrame = None,
+        pixel_size: float = 1.0,
+        time_interval: float =  None,
+        frames: list | int = None,
+        labels: list | int = None,
+        x_unit: str = "mm",
+        y_unit: str = "mm",
+        path_save: str = None,
         do_save: bool = False,
-        unit: str = "mm",
-        do_smooth: bool = False,
-        rotate: bool = True,
+        rotate: int = 0,
+        crop: tuple = (1, 1),
     ):
 
         if isinstance(frames, int):
             frames = [frames]
-        if isinstance(labels, int):
-            labels = [labels]
+
+        if path_save is None and do_save:
+            msg = "Must specify a path to save picture"
+            raise TypeError(msg)
+        if path_save is not None and do_save is None:
+            do_save = True
 
         results = []
 
@@ -4920,7 +5095,7 @@ class VisualizationFunctions:
                 raise TypeError(msg)
 
             # ----- labels
-            if labels == "all":
+            if labels == "all" or labels is None:
                 selected_labels = sorted(data["label"].unique())
             else:
                 selected_labels = labels
@@ -4931,43 +5106,46 @@ class VisualizationFunctions:
             )
 
             sub_df = data.loc[
-                mask,
-                [
-                    "frame",
-                    "main_path",
-                    "name",
-                    "label",
-                    "x",
-                    "y",
-                    "dt",
-                ],
+                mask, ["frame", "main_path", "name", "label", "x", "y", "dt"]
             ].copy()
 
             if sub_df.empty:
                 continue
 
-            dt = sub_df["dt"].unique()
+            x_unit_factor = {"px": 1, "mm": pixel_size, "m": pixel_size / 1000}[x_unit]
 
-            unit_factor = {
-                "px": 1,
-                "mm": pixel_size,
-                "m": pixel_size / 1000,
-            }[unit]
+            x_unit_label = {
+                "px": "X [px]",
+                "mm": "X [mm]",
+                "m": "X [m]",
+            }[x_unit]
 
-            unit_label_x = {
-                "px": "X $[px]$",
-                "mm": "X $[mm]$",
-                "m": "X $[m]$",
-            }[unit]
+            min_decimals_x = {
+                "px": 0,
+                "mm": 1,
+                "m": 3,
+            }[x_unit]
 
-            unit_label_y = {
-                "px": "X $[px]$",
-                "mm": "X $[mm]$",
-                "m": "X $[m]$",
-            }[unit]
+            y_unit_factor = {"px": 1, "mm": pixel_size, "m": pixel_size / 1000}[y_unit]
+
+            y_unit_label = {
+                "px": "Y [px]",
+                "mm": "Y [mm]",
+                "m": "Y [m]",
+            }[y_unit]
+
+            min_decimals_y = {
+                "px": 0,
+                "mm": 1,
+                "m": 3,
+            }[y_unit]
 
             # ----- load image
-            name = Path(data["main_path"].iloc[0], data["name"].iloc[0])
+            name = Path(
+                data["main_path"].iloc[0],
+                data["name"].iloc[0],
+                # Path("D:\\BISE_experiments\\Essai_7\\8000Hz\\4x10mm3\\3\\Images"),
+            )
             img = self._load_image(name, invert=False, rotate_image=rotate)
 
             # ----- compute velocity
@@ -5000,9 +5178,12 @@ class VisualizationFunctions:
                 "vx": [group["vx"].to_numpy() for _, group in grouped_label],
                 "vy": [group["vy"].to_numpy() for _, group in grouped_label],
                 "label": list(group["label"].unique() for _, group in grouped_label),
-                "unit": unit_factor,
-                "x_label": unit_label_x,
-                "y_label": unit_label_y,
+                "x_unit": x_unit_factor,
+                "y_unit": y_unit_factor,
+                "x_label": f"{x_unit_label}",
+                "y_label": f"{y_unit_label}",
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
             }
             results.append(data_dict)
 
@@ -5284,7 +5465,7 @@ class VisualizationFunctions:
         pixel_size: float = None,
         path_save: str | list = None,
         do_save: str | Path = False,
-        x_unit: str = "frames",
+        x_unit: str = "time",
         y_unit: str = "m/s",
         min_decimal_x = None,
         min_decimal_y = None,
@@ -5292,7 +5473,6 @@ class VisualizationFunctions:
         do_plot_error: bool = False,
         do_smooth: bool = False,
         mode: str = "together",
-        language: str = "en",
     ):
 
         vel_altitude = []
@@ -5362,6 +5542,8 @@ class VisualizationFunctions:
                 vel_grad = vel["friction"].mean() ** 2 / self.nu_air  # /s
 
             dt = sub_df["dt"].unique()
+
+            print(x_unit)
 
             unit_factor_x = {
                 "frames": 1,
@@ -5455,8 +5637,8 @@ class VisualizationFunctions:
 
             data_dict = {
                 "curves": True,
-                "x": [group["frame"].to_numpy() * unit_factor_x for _, group in grouped_label],
-                "y": [group["velocity"].to_numpy() * unit_factor_y for _, group in grouped_label],
+                "x": [group["frame"].to_numpy() for _, group in grouped_label],
+                "y": [group["velocity"].to_numpy() for _, group in grouped_label],
                 "label": [group["label"].to_numpy() for _, group in grouped_label],
                 # "fit": [fit_func],
                 "x_log": False,
@@ -5466,6 +5648,8 @@ class VisualizationFunctions:
                 "y_label": unit_label_y,
                 "min_decimals_x": min_decimals_x,
                 "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": True,
                 "velocity_f": [group["vel_altitude"].to_numpy() for _, group in grouped_label] if vel is not None else None,
                 "y_unit_2": unit_factor_y_2,
             }
@@ -5497,29 +5681,23 @@ class VisualizationFunctions:
 
     def Visualize_acceleration(
         self,
-        pixel_size: float = 1.0,
         dataframe: pd.DataFrame = None,
-        velocity: pd.DataFrame = None,
+        velocity: str | list | Path = None,
         frames: int | list | np.ndarray = None,
-        labels: int | list | np.ndarray = [1, 2, 3],
-        path_save=None,
+        labels: int | list | np.ndarray = None,
+        time_interval: float = None,
+        pixel_size: float = None,
+        path_save: str | list = None,
         do_save: str | Path = False,
         x_unit: str = "time",
-        y_unit: str = "mm/s2",
+        y_unit: str = "m/s",
+        min_decimal_x = None,
+        min_decimal_y = None,
+        use_subpixel: bool = False,
         do_plot_error: bool = False,
         do_smooth: bool = False,
-        mode: str = "separate",
-        language: str = "en",
+        mode: str = "together",
     ):
-
-        if velocity is not None:
-            if not isinstance(velocity, (list, str, Path)):
-                msg = "dataframe must be list or pd.DataFrame type"
-                raise TypeError(msg)
-            if not isinstance(velocity, list):
-                velocity = [velocity]
-        else:
-            velocity = [None] * len(dataframe)
 
         if len(dataframe) > 10:
             colors = cm.get_cmap("tab20")
@@ -5528,16 +5706,18 @@ class VisualizationFunctions:
 
         result = []
 
-        for i, (data, vel) in enumerate(zip(dataframe, velocity)):
+        for run, data in enumerate(dataframe):
             mask_keys = [
                 "frame",
-                "main_path",
-                "name",
-                "label",
-                "x",
-                "y",
                 "time",
+                "label",
                 "dt",
+                "diameter_mean",
+                "x",
+                "y",  # "x_subpixel", "y_subpixel",
+                "velocity",
+                "vx",
+                "vy",
             ]
 
             if isinstance(frames, int):
@@ -5548,32 +5728,17 @@ class VisualizationFunctions:
                 msg = "'frames' must be int, list or ndarray of int"
                 raise TypeError(msg)
 
-            if labels == "all":
+            if labels == "all" or labels is None:
                 labels = sorted(data["label"].unique())
 
             mask_frames = data["frame"].isin(frames)
             mask_labels = data["label"].isin(labels)
-            sub_df = data.loc[mask_frames & mask_labels, mask_keys].copy()
+            mask = mask_frames & mask_labels
+            sub_df = data.loc[mask, mask_keys].copy()
             frames = sub_df["frame"].unique()
 
-            if vel is not None:
-                keys = [
-                    "frame",
-                    "timestamp",
-                    "voltage",
-                    "velocity",
-                ]
+            dt = sub_df["dt"].unique()
 
-                velocity = self._load_velocity(
-                    vel,
-                )
-                self._check_keys(velocity, keys)
-
-                mask = velocity["frame"].isin(frames)
-
-                velocity = velocity.loc[mask, keys].copy()
-
-            time_interval = sub_df["dt"].unique()
             unit_factor_x = {
                 "frames": 1,
                 "time": time_interval,
@@ -5584,25 +5749,22 @@ class VisualizationFunctions:
                 "time": "Time $[s]$",
             }[x_unit]
 
-            unit_factor_y = {
-                "px/s2": 1,
-                "mm/s2": pixel_size,
-                "m/s2": pixel_size * 1000,
-            }[y_unit]
-
-            unit_label_y = {
-                "px/s2": "Acceleration $[px/s]$",
-                "mm/s2": "Acceleration $[mm/s]$",
-                "m/s2": "Acceleration $[m/s]$",
-            }[y_unit]
-
             min_decimals_x = {
                 "frames": 0,
                 "time": 3,
             }[x_unit]
 
+            unit_factor_y = {
+                "mm/s2": pixel_size,
+                "m/s2": pixel_size / 1000,
+            }[y_unit]
+
+            unit_label_y = {
+                "mm/s2": "Acceleration $[mm/s]$",
+                "m/s2": "Acceleration $[m/s]$",
+            }[y_unit]
+
             min_decimals_y = {
-                "px/s2": 0,
                 "mm/s2": 0,
                 "m/s2": 2,
             }[y_unit]
@@ -5610,11 +5772,21 @@ class VisualizationFunctions:
             df = sub_df.sort_values(by=["label", "frame"])
             dt = sub_df["dt"].unique()
 
-            df = sub_df.sort_values(by=["label", "frame"])
-            dt = sub_df["dt"].unique()
-
-            df["dx"] = df.groupby("label")["x"].diff().fillna(0.0)
-            df["dy"] = df.groupby("label")["y"].diff().fillna(0.0)
+            if use_subpixel:
+                print("USE SUBPIXEL")
+                df["dx"] = (
+                    df.groupby("label")["x_subpixel"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                df["dy"] = (
+                    df.groupby("label")["y_subpixel"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+            else:
+                df["dx"] = (
+                    df.groupby("label")["x"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                df["dy"] = (
+                    df.groupby("label")["y"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
 
             df["vx"] = df.groupby("label")["dx"].transform(lambda x: x / dt)
             df["vy"] = df.groupby("label")["dy"].transform(lambda x: x / dt)
@@ -5624,6 +5796,11 @@ class VisualizationFunctions:
                 + df.groupby("label")["dy"].transform(lambda x: x**2)
             )
             df["velocity"] = df.groupby("label")["disp"].transform(lambda x: x / dt)
+
+            # diameter = sub_df.groupby("label")["diameter_mean"].unique().values
+            df["diameter"] = df["label"].map(
+                sub_df.groupby("label")["diameter_mean"].unique()
+            )
 
             df["ax"] = df.groupby("label")["vx"].transform(lambda x: x / dt)
             df["ay"] = df.groupby("label")["vy"].transform(lambda x: x / dt)
@@ -5637,6 +5814,7 @@ class VisualizationFunctions:
             #         popt, _, fit_func, r2 = FitFunction()._fit_curve(group["frame"], group["acceleration"], func_base=func_base)
 
             grouped_label = df.groupby("label")
+
             data_dict = {
                 "curves": True,
                 "x": [group["frame"].to_numpy() for _, group in grouped_label],
@@ -5650,7 +5828,29 @@ class VisualizationFunctions:
                 "y_label": unit_label_y,
                 "min_decimals_x": min_decimals_x,
                 "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": True,
             }
+
+            for lbl, group in grouped_label:
+                output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Acceleration_run_{4}_label_{lbl}.csv"
+                output_file = Path(output_file)
+                df = pd.DataFrame(
+                    {
+                        "frame": group["frame"].to_numpy(),
+                        "acceleration_p [px/s]": group["acceleration"].to_numpy(),
+                        "acceleration_p [mm/s]": group["acceleration"].to_numpy() * pixel_size,
+                        "diameter_p [px]": group["diameter"].to_numpy(),
+                        "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
+                    }
+                )
+
+                table = pa.Table.from_pandas(df)
+                pq.write_table(table, output_file)
+
+                table = pq.read_table(output_file)
+                df = table.to_pandas()
+                df.to_csv(output_file, index=False, encoding="utf-8")
 
             result.append(data_dict)
 
@@ -5658,32 +5858,23 @@ class VisualizationFunctions:
 
     def Visualize_momentum(
         self,
-        pixel_size: float = 1.0,
-        dataframe: str = None,
-        velocity: str = None,
+        dataframe: pd.DataFrame = None,
+        velocity: str | list | Path = None,
         frames: int | list | np.ndarray = None,
-        labels: int | list | np.ndarray = [1, 2, 3],
-        path_save=None,
+        labels: int | list | np.ndarray = None,
+        time_interval: float = None,
+        pixel_size: float = None,
+        path_save: str | list = None,
         do_save: str | Path = False,
         x_unit: str = "time",
-        y_unit: str = "kg.mm/s",
+        y_unit: str = "m/s",
+        min_decimal_x = None,
+        min_decimal_y = None,
+        use_subpixel: bool = False,
         do_plot_error: bool = False,
         do_smooth: bool = False,
-        mode: str = "separate",
-        language: str = "en",
+        mode: str = "together",
     ):
-
-        if velocity is not None:
-            if not isinstance(velocity, (list, str, Path)):
-                msg = "dataframe must be list or pd.DataFrame type"
-                raise TypeError(msg)
-            if not isinstance(velocity, list):
-                velocity = [velocity]
-        else:
-            velocity = [None] * len(dataframe)
-
-        if mode == "together":
-            fig, ax = plt.subplots()
 
         if len(dataframe) > 10:
             colors = cm.get_cmap("tab20")
@@ -5692,17 +5883,19 @@ class VisualizationFunctions:
 
         result = []
 
-        for i, (data, vel) in enumerate(zip(dataframe, velocity)):
+        for run, data in enumerate(dataframe):
             mask_keys = [
                 "frame",
-                "main_path",
-                "name",
                 "time",
-                "x",
-                "y",
-                "dt",
                 "label",
+                "dt",
                 "diameter_mean",
+                "x",
+                "y",  # "x_subpixel", "y_subpixel",
+                "velocity",
+                "vx",
+                "vy",
+                "mass_mean",
             ]
 
             if isinstance(frames, int):
@@ -5713,32 +5906,16 @@ class VisualizationFunctions:
                 msg = "'frames' must be int, list or ndarray of int"
                 raise TypeError(msg)
 
-            if labels == "all":
+            if labels == "all" or labels is None:
                 labels = sorted(data["label"].unique())
 
             mask_frames = data["frame"].isin(frames)
             mask_labels = data["label"].isin(labels)
-            sub_df = data.loc[mask_frames & mask_labels, mask_keys].copy()
+            mask = mask_frames & mask_labels
+            sub_df = data.loc[mask, mask_keys].copy()
             frames = sub_df["frame"].unique()
 
-            if vel is not None:
-                keys = [
-                    "frame",
-                    "timestamp",
-                    "voltage",
-                    "velocity",
-                ]
-
-                velocity = self._load_velocity(
-                    vel,
-                )
-                self._check_keys(velocity, keys)
-
-                mask = velocity["frame"].isin(frames)
-
-                velocity = velocity.loc[mask, keys].copy()
-
-            time_interval = sub_df["dt"].unique()
+            dt = sub_df["dt"].unique()
 
             unit_factor_x = {
                 "frames": 1,
@@ -5750,25 +5927,22 @@ class VisualizationFunctions:
                 "time": "Time $[s]$",
             }[x_unit]
 
-            unit_factor_y = {
-                "kg.px/s": 1,
-                "kg.mm/s": pixel_size,
-                "kg.m/s": pixel_size * 1000,
-            }[y_unit]
-
-            unit_label_y = {
-                "kg.px/s": "Momentum $[kg * px/s]$",
-                "kg.mm/s": "Momentum $[mN \, s]$",
-                "kg.m/s": "Momentum $[N \, s]$",
-            }[y_unit]
-
             min_decimals_x = {
                 "frames": 0,
                 "time": 3,
             }[x_unit]
 
+            unit_factor_y = {
+                "kg.mm/s": pixel_size,
+                "kg.m/s": pixel_size / 1000,
+            }[y_unit]
+
+            unit_label_y = {
+                "kg.mm/s": "Momentum $[kg \, mm/s]$",
+                "kg.m/s": "Momentum $[kg \, m/s]$",
+            }[y_unit]
+
             min_decimals_y = {
-                "kg.px/s": 0,
                 "kg.mm/s": 0,
                 "kg.m/s": 2,
             }[y_unit]
@@ -5776,16 +5950,21 @@ class VisualizationFunctions:
             df = sub_df.sort_values(by=["label", "frame"])
             dt = sub_df["dt"].unique()
 
-            density = 2250.0  # kg / m3
-            df["mass"] = (
-                df.groupby("label")["diameter_mean"].transform(
-                    lambda x: 4 / 3 * np.pi * (x * unit_factor_y / 2) ** 3
-                )
-                * density
-            )
-
-            df["dx"] = df.groupby("label")["x"].diff().fillna(0.0)
-            df["dy"] = df.groupby("label")["y"].diff().fillna(0.0)
+            if use_subpixel:
+                print("USE SUBPIXEL")
+                df["dx"] = (
+                    df.groupby("label")["x_subpixel"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                df["dy"] = (
+                    df.groupby("label")["y_subpixel"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+            else:
+                df["dx"] = (
+                    df.groupby("label")["x"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                df["dy"] = (
+                    df.groupby("label")["y"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
 
             df["vx"] = df.groupby("label")["dx"].transform(lambda x: x / dt)
             df["vy"] = df.groupby("label")["dy"].transform(lambda x: x / dt)
@@ -5796,10 +5975,14 @@ class VisualizationFunctions:
             )
             df["velocity"] = df.groupby("label")["disp"].transform(lambda x: x / dt)
 
-            df["momentum"] = df.groupby("label")["mass"].transform(
-                lambda x: x
-            ) * df.groupby("label")["velocity"].transform(
-                lambda x: x * pixel_size / 1000
+            # diameter = sub_df.groupby("label")["diameter_mean"].unique().values
+            df["diameter"] = df["label"].map(
+                sub_df.groupby("label")["diameter_mean"].unique()
+            )
+
+            df["momentum"] = (
+                df.groupby("label")["mass_mean"].transform(lambda x: x * (pixel_size / 1000)**3)
+                * df.groupby("label")["velocity"].transform(lambda x: x * pixel_size / 1000)
             )
 
             # if len(df["momentum"]) > 3:
@@ -5808,6 +5991,7 @@ class VisualizationFunctions:
             #         popt, _, fit_func, r2 = FitFunction()._fit_curve(group["frame"], group["momentum"], func_base=func_base)
 
             grouped_label = df.groupby("label")
+
             data_dict = {
                 "curves": True,
                 "x": [group["frame"].to_numpy() for _, group in grouped_label],
@@ -5821,7 +6005,29 @@ class VisualizationFunctions:
                 "y_label": unit_label_y,
                 "min_decimals_x": min_decimals_x,
                 "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": True,
             }
+
+            for lbl, group in grouped_label:
+                output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Momentum_run_{4}_label_{lbl}.csv"
+                output_file = Path(output_file)
+                df = pd.DataFrame(
+                    {
+                        "frame": group["frame"].to_numpy(),
+                        "momentum_p [px/s]": group["momentum"].to_numpy(),
+                        "momentum_p [mm/s]": group["momentum"].to_numpy() * pixel_size,
+                        "diameter_p [px]": group["diameter"].to_numpy(),
+                        "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
+                    }
+                )
+
+                table = pa.Table.from_pandas(df)
+                pq.write_table(table, output_file)
+
+                table = pq.read_table(output_file)
+                df = table.to_pandas()
+                df.to_csv(output_file, index=False, encoding="utf-8")
 
             result.append(data_dict)
 
@@ -5829,36 +6035,23 @@ class VisualizationFunctions:
 
     def Visualize_kinetic_energy(
         self,
-        pixel_size: float = 1.0,
         dataframe: pd.DataFrame = None,
-        velocity: pd.DataFrame = None,
+        velocity: str | list | Path = None,
         frames: int | list | np.ndarray = None,
-        labels: int | list | np.ndarray = [1, 2, 3],
-        path_save=None,
+        labels: int | list | np.ndarray = None,
+        time_interval: float = None,
+        pixel_size: float = None,
+        path_save: str | list = None,
         do_save: str | Path = False,
         x_unit: str = "time",
-        y_unit: str = "pJ",
+        y_unit: str = "J",
+        min_decimal_x = None,
+        min_decimal_y = None,
+        use_subpixel: bool = False,
         do_plot_error: bool = False,
         do_smooth: bool = False,
-        language: str = "en",
+        mode: str = "together",
     ):
-
-        if velocity is not None:
-            if not isinstance(velocity, (list, str, Path)):
-                msg = "dataframe must be list or pd.DataFrame type"
-                raise TypeError(msg)
-            if not isinstance(velocity, list):
-                velocity = [velocity]
-        else:
-            velocity = [None] * len(dataframe)
-
-        if isinstance(labels, int):
-            labels = [labels]
-        if labels is None:
-            labels = [self.dataframe["label"].unique()]
-        if not isinstance(labels, (int, np.ndarray, list)):
-            msg = "labels variable must be int, list of ndarray of int"
-            raise TypeError(msg)
 
         if len(dataframe) > 10:
             colors = cm.get_cmap("tab20")
@@ -5867,18 +6060,19 @@ class VisualizationFunctions:
 
         result = []
 
-        for i, (data, vel) in enumerate(zip(dataframe, velocity)):
+        for run, data in enumerate(dataframe):
             mask_keys = [
                 "frame",
-                "main_path",
-                "name",
-                "x",
-                "y",
-                "dt",
-                "mass_mean",
                 "time",
                 "label",
+                "dt",
                 "diameter_mean",
+                "x",
+                "y",  # "x_subpixel", "y_subpixel",
+                "velocity",
+                "vx",
+                "vy",
+                "mass_mean",
             ]
 
             if isinstance(frames, int):
@@ -5889,32 +6083,16 @@ class VisualizationFunctions:
                 msg = "'frames' must be int, list or ndarray of int"
                 raise TypeError(msg)
 
-            if labels == "all":
+            if labels == "all" or labels is None:
                 labels = sorted(data["label"].unique())
 
             mask_frames = data["frame"].isin(frames)
             mask_labels = data["label"].isin(labels)
-            sub_df = data.loc[mask_frames & mask_labels, mask_keys].copy()
+            mask = mask_frames & mask_labels
+            sub_df = data.loc[mask, mask_keys].copy()
             frames = sub_df["frame"].unique()
 
-            if vel is not None:
-                keys = [
-                    "frame",
-                    "timestamp",
-                    "voltage",
-                    "velocity",
-                ]
-
-                velocity = self._load_velocity(
-                    vel,
-                )
-                self._check_keys(velocity, keys)
-
-                mask = velocity["frame"].isin(frames)
-
-                velocity = velocity.loc[mask, keys].copy()
-
-            time_interval = sub_df["dt"].unique()
+            dt = sub_df["dt"].unique()
 
             unit_factor_x = {
                 "frames": 1,
@@ -5926,57 +6104,69 @@ class VisualizationFunctions:
                 "time": "Time $[s]$",
             }[x_unit]
 
-            unit_factor_y = {
-                "uJ": 1e6,
-                "nJ": 1e9,
-                "pJ": 1e12,
-            }[y_unit]
-
-            unit_label_y = {
-                "uJ": "Kinetic $[\mu J]$",
-                "nJ": "Kinetic $[nJ]$",
-                "pJ": "Kinetic $[pJ]$",
-            }[y_unit]
-
             min_decimals_x = {
                 "frames": 0,
                 "time": 3,
             }[x_unit]
 
+            unit_factor_y = {
+                "J": 1.0,
+                "uJ": 1e-6,
+                "nJ": 1e-9,
+                "pJ": 1e-12,
+            }[y_unit]
+
+            unit_label_y = {
+                "J": "Kinetic $[J]$",
+                "uJ": "Kinetic $[\mu J]$",
+                "nJ": "Kinetic $[nJ]$",
+                "pJ": "Kinetic $[pJ]$"
+            }[y_unit]
+
             min_decimals_y = {
+                "J": 3,
                 "uJ": 0,
-                "nJ": 0,
+                "nJ": 2,
                 "pJ": 2,
             }[y_unit]
 
             df = sub_df.sort_values(by=["label", "frame"])
             dt = sub_df["dt"].unique()
 
-            density = 2250.0  # kg / m3
-            df["mass"] = (
-                df.groupby("label")["diameter_mean"].transform(
-                    lambda x: 4 / 3 * np.pi * (x * pixel_size / 1000 / 2) ** 3
-                )
-                * density
-            )  # kg
-            print(df["mass"].unique())
+            if use_subpixel:
+                print("USE SUBPIXEL")
+                df["dx"] = (
+                    df.groupby("label")["x_subpixel"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                df["dy"] = (
+                    df.groupby("label")["y_subpixel"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+            else:
+                df["dx"] = (
+                    df.groupby("label")["x"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                df["dy"] = (
+                    df.groupby("label")["y"].diff().fillna(0.0)
+                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
 
-            df["dx"] = df.groupby("label")["x"].diff().fillna(0.0)
-            df["dy"] = df.groupby("label")["y"].diff().fillna(0.0)
+            df["vx"] = df.groupby("label")["dx"].transform(lambda x: x / dt)
+            df["vy"] = df.groupby("label")["dy"].transform(lambda x: x / dt)
 
             df["disp"] = np.sqrt(
                 df.groupby("label")["dx"].transform(lambda x: x**2)
                 + df.groupby("label")["dy"].transform(lambda x: x**2)
             )
-            df["velocity"] = df.groupby("label")["disp"].transform(
-                lambda x: (x * pixel_size / 1000) / dt
-            )  # m/s
+            df["velocity"] = df.groupby("label")["disp"].transform(lambda x: x / dt)
+
+            # diameter = sub_df.groupby("label")["diameter_mean"].unique().values
+            df["diameter"] = df["label"].map(
+                sub_df.groupby("label")["diameter_mean"].unique()
+            )
 
             df["kinetic"] = (
-                1
-                / 2
-                * df.groupby("label")["mass"].transform(lambda x: x)
-                * df.groupby("label")["velocity"].transform(lambda x: x**2)
+                1 / 2
+                * df.groupby("label")["mass_mean"].transform(lambda x: x * (pixel_size / 1000)**3)
+                * df.groupby("label")["velocity"].transform(lambda x: (x * pixel_size / 1000)**2)
             )  # J
 
             # if len(df["kinetic"]) > 3:
@@ -5985,10 +6175,11 @@ class VisualizationFunctions:
             #         popt, _, fit_func, r2 = FitFunction()._fit_curve(group["frame"], group["kinetic"], func_base=func_base)
 
             grouped_label = df.groupby("label")
+
             data_dict = {
                 "curves": True,
                 "x": [group["frame"].to_numpy() for _, group in grouped_label],
-                "y": [group["kinetic"].to_numpy() for _, group in grouped_label],  # J
+                "y": [group["kinetic"].to_numpy() for _, group in grouped_label],
                 "label": [group["label"].to_numpy() for _, group in grouped_label],
                 # "fit": [fit_func],
                 "x_log": False,
@@ -5998,7 +6189,29 @@ class VisualizationFunctions:
                 "y_label": unit_label_y,
                 "min_decimals_x": min_decimals_x,
                 "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": True,
             }
+
+            for lbl, group in grouped_label:
+                output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Kinetic_run_{4}_label_{lbl}.csv"
+                output_file = Path(output_file)
+                df = pd.DataFrame(
+                    {
+                        "frame": group["frame"].to_numpy(),
+                        "kinetic_p [px/s]": group["kinetic"].to_numpy(),
+                        "kinetic_p [mm/s]": group["kinetic"].to_numpy() * pixel_size,
+                        "diameter_p [px]": group["diameter"].to_numpy(),
+                        "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
+                    }
+                )
+
+                table = pa.Table.from_pandas(df)
+                pq.write_table(table, output_file)
+
+                table = pq.read_table(output_file)
+                df = table.to_pandas()
+                df.to_csv(output_file, index=False, encoding="utf-8")
 
             result.append(data_dict)
 
@@ -6285,8 +6498,8 @@ class VisualizationFunctions:
         time_interval: float =  None,
         frames: list | int = None,
         labels: list | int = None,
-        x_unit: str = None,
-        y_unit: str = None,
+        x_unit: str = "mm",
+        y_unit: str = "mm",
         path_save: str = None,
         do_save: bool = False,
         rotate: int = 0,
@@ -6388,14 +6601,14 @@ class VisualizationFunctions:
             results.append(data_dict)
 
             # compute distance
-            distances = [
-                np.sqrt(
-                    (group["x"].to_numpy()[0] - group["x"].to_numpy()[-1])**2 +
-                    (group["y"].to_numpy()[0] - group["y"].to_numpy()[-1])**2
-                    ) * pixel_size
-                for _, group in grouped
-            ]
-            print(distances)
+            # distances = [
+            #     np.sqrt(
+            #         (group["x"].to_numpy()[0] - group["x"].to_numpy()[-1])**2 +
+            #         (group["y"].to_numpy()[0] - group["y"].to_numpy()[-1])**2
+            #         ) * pixel_size
+            #     for _, group in grouped
+            # ]
+            # print(distances)
 
             # sub_df["dx"] = (
             #     sub_df.groupby("label")["x"].diff().fillna(0.0)

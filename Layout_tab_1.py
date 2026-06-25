@@ -563,6 +563,12 @@ class HelperTab1(QWidget):
         self.folders_changed.emit(self.parent.folders_list)
         self.files_changed.emit(self.parent.files_list)
 
+        # remove image
+        if hasattr(self, "image_viewer") and self.image_viewer is not None:
+            self.image_viewer.clear()
+            # self.image_viewer.deleteLater()
+            # self.image_viewer = None
+
         # ----- enable buttons
         has_folders = len(self.parent.folders_list) > 0
         self.preview_btn.setEnabled(has_folders)
@@ -1065,6 +1071,7 @@ class OptionDialog(QDialog):
 
         # create checkbox
         checkboxes_info = [
+            # ("invert_gray", "Invert gray", True, "Apply gray level inversion on images"),
             ("threshold", "Threshold", True, "Apply binarization threshold on images to remove background"),
             ("fill_holes", "Fill holes", True, "After binarization, fill holes inside objects"),
             ("clear_border", "Clear border", True, "Remove objects that touches border"),
