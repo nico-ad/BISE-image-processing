@@ -3127,7 +3127,7 @@ class VisualizationFunctions:
         self,
         dataframe: pd.DataFrame = None,
         pixel_size: float = None,
-        time_interval: float = 1 / 8000,
+        time_interval: float = 1,
         frames: list | np.ndarray = None,
         labels: list | np.ndarray = None,
         path_save: str = None,
@@ -3165,16 +3165,8 @@ class VisualizationFunctions:
                 msg = "'frames' must be int, list or np.ndarray of int"
                 raise TypeError(msg)
 
-            # ----- labels
-            if labels == "all" or labels is None:
-                selected_labels = sorted(data["label"].unique())
-            else:
-                selected_labels = labels
-
             # ------ filtering
-            mask = data["frame"].isin(selected_frames) & data["label"].isin(
-                selected_labels
-            )
+            mask = data["frame"].isin(selected_frames)
 
             sub_df = data.loc[mask, ["frame", "diameter_mean"]].copy()
 
@@ -3197,6 +3189,14 @@ class VisualizationFunctions:
                 "m_velocity": "Middle duct velocity $[m/s]$",  # middle duct velocity
                 "reynolds": "Reynolds number",
             }[x_unit]
+            
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+                "fric_velocity": 3,
+                "flow_velocity": 3,
+                "reynolds": 3,
+            }[x_unit]
 
             unit_factor_y = {
                 "fraction": 1,
@@ -3206,19 +3206,9 @@ class VisualizationFunctions:
                 "fraction": "$K_{{res}}$",
             }[y_unit]
 
-            # # ----- velocity
-            # if velocity is not None:
-            #     mask = (
-            #         velocity["frame"].isin(selected_frames)
-            #     )
-            #     velocity = velocity.loc[
-            #         mask,
-            #         ["frame", "velocity"]
-            #     ].copy()
-            #     velocity["friction"] = 0.0564 * velocity["velocity"] ** (7/8)
-
-            #     if velocity.empty:
-            #         continue
+            min_decimals_y = {
+                "fraction": 2,
+            }[y_unit]
 
             # ----- group data
             grouped = sub_df.groupby("frame")
@@ -3231,12 +3221,18 @@ class VisualizationFunctions:
                 "curves": True,
                 "x": [sub_df["frame"].unique()],
                 "y": [[(1 - (len(group) / initial_num_parts)) for _, group in grouped]],
+                "x_log": False,
                 "run": [run],
                 "x_unit": unit_factor_x,
                 "y_unit": unit_factor_y,
                 "x_label": unit_label_x,
                 "y_label": unit_label_y,
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": True,
             }
+
             results.append(data_dict)
 
         return results
@@ -3756,7 +3752,7 @@ class VisualizationFunctions:
         self,
         dataframe: pd.DataFrame = None,
         pixel_size: float = None,
-        time_interval: float = 1 / 8000,
+        time_interval: float = 1,
         frames: list | np.ndarray = None,
         labels: list | np.ndarray = None,
         change_main_path_images: str | list | Path = None,
@@ -3789,16 +3785,8 @@ class VisualizationFunctions:
                 msg = "'frames' must be int, list or np.ndarray of int"
                 raise TypeError(msg)
 
-            # ----- labels
-            if labels == "all" or labels is None:
-                selected_labels = sorted(data["label"].unique())
-            else:
-                selected_labels = labels
-
             # ------ filtering
-            mask = data["frame"].isin(selected_frames) & data["label"].isin(
-                selected_labels
-            )
+            mask = data["frame"].isin(selected_frames)
 
             sub_df = data.loc[mask, ["frame", "diameter_mean"]].copy()
 
@@ -3816,10 +3804,18 @@ class VisualizationFunctions:
 
             unit_label_x = {
                 "frames": "Frames",
-                "time": f"Time $[s]$",
-                "f_velocity": f"Friction velocity $[m/s]$",  # friction velocity
-                "m_velocity": f"Middle duct velocity $[m/s]$",  # middle duct velocity
+                "time": "Time $[s]$",
+                "f_velocity": "Friction velocity $[m/s]$",  # friction velocity
+                "m_velocity": "Middle duct velocity $[m/s]$",  # middle duct velocity
                 "reynolds": "Reynolds number",
+            }[x_unit]
+
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+                "fric_velocity": 3,
+                "flow_velocity": 3,
+                "reynolds": 3,
             }[x_unit]
 
             unit_factor_y = {
@@ -3827,22 +3823,12 @@ class VisualizationFunctions:
             }[y_unit]
 
             unit_label_y = {
-                "fraction": f"$K_{{rem}}$",
+                "fraction": "$K_{{rem}}$",
             }[y_unit]
 
-            # # ----- velocity
-            # if velocity is not None:
-            #     mask = (
-            #         velocity["frame"].isin(selected_frames)
-            #     )
-            #     velocity = velocity.loc[
-            #         mask,
-            #         ["frame", "velocity"]
-            #     ].copy()
-            #     velocity["friction"] = 0.0564 * velocity["velocity"] ** (7/8)
-
-            #     if velocity.empty:
-            #         continue
+            min_decimals_y = {
+                "fraction": 2,
+            }[y_unit]
 
             # ----- group data
             grouped = sub_df.groupby("frame")
@@ -3860,7 +3846,12 @@ class VisualizationFunctions:
                 "y_unit": unit_factor_y,
                 "x_label": unit_label_x,
                 "y_label": unit_label_y,
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": True,
             }
+
             results.append(data_dict)
 
         return results
@@ -4556,188 +4547,146 @@ class VisualizationFunctions:
         # return data_dict
 
     def Visualize_mean_diameter(
-        self,
-        dataframe: Path | str | list = None,
-        velocity: Path | str | list = None,
-        frames: list = None,
-        labels: list = None,
-        path_save: Path | list | str = None,
-        do_save: bool = False,
+            self,
+        dataframe: pd.DataFrame = None,
+        velocity: str | list | Path = None,
+        frames: int | list | np.ndarray = None,
+        labels: int | list | np.ndarray = None,
+        time_interval: float = None,
+        pixel_size: float = None,
+        path_save: str | list = None,
+        do_save: str | Path = False,
         x_unit: str = "time",
-        y_unit: str = "mm",
+        y_unit: str = "um",
+        min_decimal_x = None,
+        min_decimal_y = None,
+        use_subpixel: bool = False,
+        do_plot_error: bool = False,
+        do_smooth: bool = False,
+        mode: str = "together",
     ):
 
-        if not isinstance(path_dataframe, (list, str, Path)):
-            msg = "dataframe must be list or pd.DataFrame type"
-            raise TypeError(msg)
-        if not isinstance(path_dataframe, list):
-            path_dataframe = [path_dataframe]
-
-        if path_velocity is not None:
-            if not isinstance(path_velocity, (list, str, Path)):
+        vel_altitude = []
+        if velocity is not None:
+            if not isinstance(velocity, (list, str, Path)):
                 msg = "dataframe must be list or pd.DataFrame type"
                 raise TypeError(msg)
-            if not isinstance(path_velocity, list):
-                path_velocity = [path_velocity]
+            if not isinstance(velocity, list):
+                velocity = [velocity]
         else:
-            path_velocity = [None] * len(path_dataframe)
+            velocity = [None] * len(dataframe)
 
-        if x_unit not in [
-            "time",
-            "frame",
-            "velocity",
-            "Reynolds_duct",
-            "Reynolds_friction",
-        ]:
-            msg = f"'units' varible is not time, frame, velocity or Reynolds_duct or Reynolds_friction. Not {x_unit}"
-            raise ValueError(msg)
+        if len(dataframe) > 10:
+            colors = cm.get_cmap("tab20")
+        else:
+            colors = cm.get_cmap("tab10")
 
-        results = []
+        result = []
 
-        for i, (data, vel) in enumerate(zip(dataframe, velocity)):
-            keys = [
+        for run, data in enumerate(dataframe):
+            mask_keys = [
                 "frame",
-                "main_path",
-                "name",
                 "time",
-                "label",
+                "dt",
                 "diameter_mean",
             ]
 
             if isinstance(frames, int):
                 frames = [frames]
             if frames is None:
-                frames = [dataframe["frame"].unique()]
+                frames = data["frame"].unique()
             if not isinstance(frames, (int, np.ndarray, list)):
                 msg = "'frames' must be int, list or ndarray of int"
                 raise TypeError(msg)
 
-            mask_frames = dataframe["frame"].isin(frames)
+            mask_frames = data["frame"].isin(frames)
+            mask = mask_frames
 
-            sub_df = dataframe.loc[
-                mask,
-                keys,
-            ].copy()
+            sub_df = data.loc[mask, mask_keys].copy()
             frames = sub_df["frame"].unique()
 
-            mean_diameter_per_frame = sub_df.groupby("frame")["diameter_mean"].mean()
-            std_diameter_per_frame = (
-                sub_df.groupby("frame")["diameter_mean"].std() / 2.0
-            )
+            unit_factor_x = {
+                "frames": 1,
+                "time": time_interval,
+                "fric_velocity": 1.0,
+                "flow_velocity": 1.0,
+                "reynolds": 1.0,
+            }[x_unit]
 
-            # if use_mean is not None and kernel_size is not None:
-            #     kernel = [1] * kernel_size
-            #     mean_diameter_per_frame = scipy.signal.convolve(mean_diameter_per_frame, kernel, mode="same")
-            #     conv = scipy.signal.convolve(mean_diameter_per_frame, kernel, mode="same")
-            #     mean_diameter_per_frame = conv/max(conv) * max(mean_diameter_per_frame)
+            unit_label_x = {
+                "frames": "Frames",
+                "time": "Time $[s]$",
+                "fric_velocity": "Friction velocity [m/s]",
+                "flow_velocity": "Flow velocity [m/s]",
+                "reynolds": "Reynold number",
+            }[x_unit]
 
-            initial_density = self._compute_surface_concentration(
-                sub_df, int(frames[0])
-            )
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+                "fric_velocity": 3,
+                "flow_velocity": 3,
+                "reynolds": 3,
+            }[x_unit]
 
-            ax.plot(
-                frames,
-                mean_diameter_per_frame,
-                color="tab:blue",
-                label=f"Mean diameter for $C_0={initial_density:.2f} mm^{{-2}}$",
-            )
+            unit_factor_y = {
+                "mm": pixel_size,
+                "um": pixel_size / 1000,
+            }[y_unit]
 
-            ax.fill_between(
-                frames,
-                y1=mean_diameter_per_frame - std_diameter_per_frame,
-                y2=mean_diameter_per_frame + std_diameter_per_frame,
-                color="tab:blue",
-                alpha=0.2,
-            )
+            unit_label_y = {
+                "mm": "Mean diameter $[mm]$",
+                "um": "Mean diameter $[\mu m]$",
+            }[y_unit]
 
-            ax.plot(
-                frames,
-                mean_diameter_per_frame,
-                color="tab:blue",
-            )
+            min_decimals_y = {
+                "mm": 2,
+                "um": 0,
+            }[y_unit]
 
-            ax.fill_between(
-                frames,
-                y1=mean_diameter_per_frame - std_diameter_per_frame,
-                y2=mean_diameter_per_frame + std_diameter_per_frame,
-                color="tab:blue",
-                alpha=0.2,
-            )
+            data_dict = {
+                "curves": True,
+                "x": [sub_df["frame"].unique()],
+                "y": [sub_df.groupby("frame")["diameter_mean"].mean()],
+                "run": [run],
+                # "fit": [fit_func],
+                "x_log": False,
+                "x_unit": unit_factor_x,
+                "y_unit": unit_factor_y,
+                "x_label": unit_label_x,
+                "y_label": unit_label_y,
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": True,
+            }
 
-        if use_fit:
-            _, _, fit_func, _ = self._fit_curve(frames, mean_diameter_per_frame)
-            ax.plot(
-                frames,
-                fit_func,
-                color="tab:red",
-                label="Fit : $A + \\frac{{K-A}}{{(C + Q e^{{-Bt}})^{{1/\\nu}}}}$",
-            )
+            # for lbl, group in grouped_label:
+            #     output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Velocity_run_{4}_label_{lbl}.csv"
+            #     output_file = Path(output_file)
+            #     df = pd.DataFrame(
+            #         {
+            #             "frame": group["frame"].to_numpy(),
+            #             "velocity_p [px/s]": group["velocity"].to_numpy(),
+            #             "velocity_p [mm/s]": group["velocity"].to_numpy() * pixel_size,
+            #             "diameter_p [px]": group["diameter"].to_numpy(),
+            #             "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
+            #             "velocity_f [m/s]": group["vel_altitude"] if vel is not None else None,
+            #         }
+            #     )
 
-        x_ticks = ax.get_xticks()[1:-1]
-        y_ticks = ax.get_yticks()[1:-1]
-        ax.set_xticks(x_ticks)
-        ax.set_yticks(y_ticks)
+            #     table = pa.Table.from_pandas(df)
+            #     pq.write_table(table, output_file)
 
-        ax.set_yticklabels(
-            [f"{y_tick * 1000:.0f}" for y_tick in np.array(y_ticks)], fontsize=16
-        )
+            #     table = pq.read_table(output_file)
+            #     df = table.to_pandas()
+            #     if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+            #     elif sys.plateform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+            #     else : df.to_csv(output_file, index=False, encoding="utf-8")
 
-        if x_unit == "time":
-            if language == "en":
-                ax.set_xlabel("Time $[s]$", fontsize=self.dict_fontsize["label"])
-            if language == "fr":
-                ax.set_xlabel("Temps $[s]$", fontsize=self.dict_fontsize["label"])
-            ax.set_xticklabels(
-                [f"{x_tick * self.time_interval:.1f}" for x_tick in x_ticks],
-                fontsize=16,
-            )
+            result.append(data_dict)
 
-        elif x_unit == "frame":
-            if language == "en":
-                ax.set_xlabel("Frame", fontsize=self.dict_fontsize["label"])
-            if language == "fr":
-                ax.set_xlabel("Image", fontsize=self.dict_fontsize["label"])
-            ax.set_xticklabels([f"{x_tick:.1f}" for x_tick in x_ticks], fontsize=16)
-
-        if y_unit == "um":
-            if language == "en":
-                ax.set_ylabel(
-                    "Mean diameters [$\\mu m$]", fontsize=self.dict_fontsize["label"]
-                )
-            if language == "fr":
-                ax.set_ylabel(
-                    "Diamètres moyens [$\\mu m$]", fontsize=self.dict_fontsize["label"]
-                )
-            ax.set_xticklabels(
-                [f"{y_tick:.1f}" for y_tick in y_ticks],
-                fontsize=self.dict_fontsize["ticks"],
-            )
-
-        elif y_unit == "mm":
-            if language == "en":
-                ax.set_ylabel(
-                    "Mean diameters [$mm$]", fontsize=self.dict_fontsize["label"]
-                )
-            if language == "fr":
-                ax.set_ylabel(
-                    "Diamètres moyens [$mm$]", fontsize=self.dict_fontsize["label"]
-                )
-            ax.set_xticklabels(
-                [f"{y_tick / 1000:.1f}" for y_tick in y_ticks],
-                fontsize=self.dict_fontsize["ticks"],
-            )
-
-        plt.subplots_adjust(**self.dict_fontsize["subplots"])
-
-        # if do_save:
-        #     name = Path(path_save, "Visualize_mean_diameter.png")
-        #     plt.savefig(name, dpi=120)
-        # else:
-        #     plt.show()
-
-        plt.legend(fontsize=self.dict_fontsize["legend"])
-
-        plt.show()
+        return result
 
     def Visualize_labels(
         self,
@@ -5543,8 +5492,6 @@ class VisualizationFunctions:
 
             dt = sub_df["dt"].unique()
 
-            print(x_unit)
-
             unit_factor_x = {
                 "frames": 1,
                 "time": time_interval,
@@ -5673,7 +5620,9 @@ class VisualizationFunctions:
 
                 table = pq.read_table(output_file)
                 df = table.to_pandas()
-                df.to_csv(output_file, index=False, encoding="utf-8")
+                if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                elif sys.plateform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                else : df.to_csv(output_file, index=False, encoding="utf-8")
 
             result.append(data_dict)
 
@@ -5850,7 +5799,8 @@ class VisualizationFunctions:
 
                 table = pq.read_table(output_file)
                 df = table.to_pandas()
-                df.to_csv(output_file, index=False, encoding="utf-8")
+                if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                else : df.to_csv(output_file, index=False, encoding="latin-1")
 
             result.append(data_dict)
 
@@ -6027,7 +5977,8 @@ class VisualizationFunctions:
 
                 table = pq.read_table(output_file)
                 df = table.to_pandas()
-                df.to_csv(output_file, index=False, encoding="utf-8")
+                if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                else : df.to_csv(output_file, index=False, encoding="latin-1")
 
             result.append(data_dict)
 
@@ -6211,7 +6162,8 @@ class VisualizationFunctions:
 
                 table = pq.read_table(output_file)
                 df = table.to_pandas()
-                df.to_csv(output_file, index=False, encoding="utf-8")
+                if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                else : df.to_csv(output_file, index=False, encoding="latin-1")
 
             result.append(data_dict)
 

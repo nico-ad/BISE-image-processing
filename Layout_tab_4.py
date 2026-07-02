@@ -1891,12 +1891,12 @@ class MeanDiameterSettings:
         }
         # Y axis
         self.y_axis_options = {
-            "number",
-            "normalize",
+            "um",
+            "mm",
         }
         # default selection
         self.x_axis = "time"
-        self.y_axis = "number"
+        self.y_axis = "um"
 
 
 class InterParticleDistanceSettings:
