@@ -309,7 +309,7 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
                 x, y = int(centroid[1]), int(centroid[0])
                 # initial_center = (int(centroid[1]), int(centroid[0]))
                 # refined_center = self._refine_center(prop, initial_center)
-                # x, y = refined_center[0] + x_offset, refined_center[1] + y_offset
+                # x, y = refined_cenmean_dter[0] + x_offset, refined_center[1] + y_offset
                 diameter = 2 * np.sqrt(prop.area / np.pi)
 
                 subpixel_coords = _refine_coordinates(x, y, img, bb)

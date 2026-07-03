@@ -77,7 +77,7 @@ class ParticleAnalyser:
             np.ndarray: segmented image
         """
         
-        do_plot = True
+        do_plot = False
 
         img_raw = Image.open(filename)
         img_raw = np.array(img_raw)

@@ -2534,6 +2534,136 @@ class VisualizationFunctions:
             results.append(data_dict)
 
         return results
+    
+    def Visualize_density(
+        self,
+        frames: list | int = None,
+        labels: list | int = None,
+        dataframe: pd.DataFrame = None,
+        pixel_size: float = None,
+        time_interval: float = None,
+        x_unit: str = "frames",
+        y_unit: str = "m/s",
+        min_decimal_x = None,
+        min_decimal_y = None,
+        do_save: bool = False,
+        path_save: str | Path = None,
+        velocity: pd.DataFrame = None,
+        save_data_name: str = None,
+    ):
+
+        if path_save is None and do_save:
+            msg = "Must specify a path to save picture"
+            raise TypeError(msg)
+        if path_save is not None and do_save is None:
+            do_save = True
+
+        results = []
+
+        for ii, data in enumerate(dataframe):
+
+            # ----- frames
+            if frames is None:
+                selected_frames = data["frame"].unique()
+            elif isinstance(frames, int):
+                selected_frames = [frames]
+            elif isinstance(frames, (list, np.ndarray)):
+                selected_frames = frames
+            else:
+                msg = "'frames' must be int, list or np.ndarray of int"
+                raise TypeError(msg)
+
+            # ----- filtering
+            mask = data["frame"].isin(selected_frames)
+
+            sub_df = data.loc[
+                mask,
+                [
+                    "frame",
+                    "time",
+                    "x",
+                    "y",
+                    "image_height",
+                    "image_width",
+                ],
+            ].copy()
+
+            size_img = sub_df["image_width"].unique() * sub_df["image_height"].unique()
+
+            if sub_df.empty:
+                continue
+
+            unit_factor_x = {
+                "frames": 1.0,
+                "time": time_interval,
+                "velocity_f": 1.0,
+                "reynolds": 1.0,
+            }[x_unit]
+
+            unit_label_x = {
+                "frames": "",
+                "time": "s",
+                "flow_velocity": "Fluid velocity [$m/s$]",
+                "fric_velocity": "Friction velocity [$m/s$]",
+                "reynolds": "",
+            }[x_unit]
+            
+            min_decimals_x = {
+                "frames": 0,
+                "time": 3,
+                "velocity_f": 1,
+                "reynolds": 1,
+            }[x_unit]
+
+            unit_factor_y = {
+                "/mm2": 1 / (pixel_size**2),
+                "/m2": 1000 / (pixel_size**2),
+            }[y_unit]
+
+            unit_label_y = {
+                "/mm2": "Density [$mm^{-2}$]",
+                "/m2": "Density [$m^{-2}$]",
+            }[y_unit]
+            
+            min_decimals_y = {
+                "/mm2": 3,
+                "/m2": 3,
+            }[y_unit]
+
+            data_dict = {
+                "curves": True,
+                "x": [sub_df["frame"].unique()],
+                "y": [sub_df.groupby("frame").size() / size_img],
+                "run": [ii],
+                "x_log": False,
+                "x_unit": unit_factor_x,
+                "y_unit": unit_factor_y,
+                "x_label": f"Time [{unit_label_x}]",
+                "y_label": f"Velocity [{unit_label_y}]",
+                "min_decimals_x": min_decimals_x,
+                "min_decimals_y": min_decimals_y,
+                "x_ticks_sci": False,
+                "y_ticks_sci": False,
+            }
+            results.append(data_dict)
+
+            if save_data_name is not None:
+                output_file = Path(save_data_name)
+                if not output_file.parent.exists():
+                    print("Folder not exist")
+                
+                df = pd.DataFrame(
+                    {
+                        x_unit: sub_df["frame"].unique() * unit_factor_x,
+                        f"density_{y_unit}": sub_df.groupby("frame").size() / size_img,
+                    }
+                )
+
+                if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                else : df.to_csv(output_file, index=False, encoding="utf-8")
+
+        return results
 
     def Visualize_surface_concentration(
         self,
@@ -2547,8 +2677,6 @@ class VisualizationFunctions:
         do_save: bool = False,
         do_save_csv: bool = True,
         units: str = "px",
-        mode: str = "separate",
-        language: str = "en",
     ):
 
         if not isinstance(cut, tuple):
@@ -3140,6 +3268,8 @@ class VisualizationFunctions:
         use_mean: bool = False,
         kernel_size: int = None,
         velocity: pd.DataFrame = None,
+        save_data_name : str = None,
+
     ) -> list:
 
         if velocity is None:
@@ -3234,6 +3364,25 @@ class VisualizationFunctions:
             }
 
             results.append(data_dict)
+
+            if save_data_name is not None:
+                output_file = Path(save_data_name)
+                if not output_file.parent.exists():
+                    print("Folder not exist")
+                
+                grouped = sub_df.groupby("frame")
+                df = pd.DataFrame(
+                    {
+                        x_unit: sub_df["frame"].unique() * unit_factor_x,
+                        f"resuspended_{y_unit}": [(1 - (len(group) / initial_num_parts)) for _, group in grouped],
+                    }
+                )
+
+                print(output_file)
+
+                if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                else : df.to_csv(output_file, index=False, encoding="utf-8")
 
         return results
 
@@ -3766,6 +3915,7 @@ class VisualizationFunctions:
         use_mean: bool = False,
         kernel_size: int = None,
         velocity: str | Path = None,
+        save_data_name : str = None,
     ):
 
         if velocity is None:
@@ -3853,6 +4003,25 @@ class VisualizationFunctions:
             }
 
             results.append(data_dict)
+
+            if save_data_name is not None:
+                output_file = Path(save_data_name)
+                if not output_file.parent.exists():
+                    print("Folder not exist")
+                
+                grouped = sub_df.groupby("frame")
+                df = pd.DataFrame(
+                    {
+                        x_unit: sub_df["frame"].unique() * unit_factor_x,
+                        f"remaining_{y_unit}": [((len(group) / initial_num_parts)) for _, group in grouped],
+                    }
+                )
+
+                print(output_file)
+
+                if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                else : df.to_csv(output_file, index=False, encoding="utf-8")
 
         return results
 
@@ -4169,6 +4338,7 @@ class VisualizationFunctions:
         do_save: bool = False,
         path_save: str | Path = None,
         velocity: pd.DataFrame = None,
+        save_data_name: str = None,
     ):
 
         if path_save is None and do_save:
@@ -4264,6 +4434,24 @@ class VisualizationFunctions:
                 "fit_params": [[a, b, a_err, b_err]],
             }
             results.append(data_dict)
+
+            if save_data_name is not None:
+                output_file = Path(save_data_name)
+                if not output_file.parent.exists():
+                    print("Folder not exist")
+                
+                df = pd.DataFrame(
+                    {
+                        x_unit: sub_df["frame"].unique() * unit_factor_x,
+                        f"flow_velocity_{y_unit}": sub_df["velocity"].values,
+                    }
+                )
+
+                print(output_file)
+
+                if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                else : df.to_csv(output_file, index=False, encoding="utf-8")
 
         return results
     
@@ -4563,7 +4751,7 @@ class VisualizationFunctions:
         use_subpixel: bool = False,
         do_plot_error: bool = False,
         do_smooth: bool = False,
-        mode: str = "together",
+        save_data_name : str = None,
     ):
 
         vel_altitude = []
@@ -4631,7 +4819,7 @@ class VisualizationFunctions:
 
             unit_factor_y = {
                 "mm": pixel_size,
-                "um": pixel_size / 1000,
+                "um": pixel_size * 1000,
             }[y_unit]
 
             unit_label_y = {
@@ -4661,28 +4849,25 @@ class VisualizationFunctions:
                 "y_ticks_sci": True,
             }
 
-            # for lbl, group in grouped_label:
-            #     output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Velocity_run_{4}_label_{lbl}.csv"
-            #     output_file = Path(output_file)
-            #     df = pd.DataFrame(
-            #         {
-            #             "frame": group["frame"].to_numpy(),
-            #             "velocity_p [px/s]": group["velocity"].to_numpy(),
-            #             "velocity_p [mm/s]": group["velocity"].to_numpy() * pixel_size,
-            #             "diameter_p [px]": group["diameter"].to_numpy(),
-            #             "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
-            #             "velocity_f [m/s]": group["vel_altitude"] if vel is not None else None,
-            #         }
-            #     )
+            if save_data_name is not None:
+                output_file = Path(save_data_name)
+                if not output_file.parent.exists():
+                    print("Folder not exist")
+                
+                # grouped = sub_df.groupby("frame")["diameter_mean"].mean()
+                grouped = sub_df.groupby("frame")
+                df = pd.DataFrame(
+                    {
+                        x_unit: sub_df["frame"].unique() * unit_factor_x,
+                        f"mean_diameter_{y_unit}": sub_df.groupby("frame")["diameter_mean"].mean() * unit_factor_y,
+                    }
+                )
 
-            #     table = pa.Table.from_pandas(df)
-            #     pq.write_table(table, output_file)
+                print(output_file)
 
-            #     table = pq.read_table(output_file)
-            #     df = table.to_pandas()
-            #     if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
-            #     elif sys.plateform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
-            #     else : df.to_csv(output_file, index=False, encoding="utf-8")
+                if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                else : df.to_csv(output_file, index=False, encoding="utf-8")
 
             result.append(data_dict)
 
@@ -5018,6 +5203,7 @@ class VisualizationFunctions:
         do_save: bool = False,
         rotate: int = 0,
         crop: tuple = (1, 1),
+        save_data_name: str = None,
     ):
 
         if isinstance(frames, int):
@@ -5061,7 +5247,11 @@ class VisualizationFunctions:
             if sub_df.empty:
                 continue
 
-            x_unit_factor = {"px": 1, "mm": pixel_size, "m": pixel_size / 1000}[x_unit]
+            unit_factor_x = {
+                "px": 1,
+                "mm": pixel_size,
+                "m": pixel_size / 1000
+                }[x_unit]
 
             x_unit_label = {
                 "px": "X [px]",
@@ -5075,7 +5265,7 @@ class VisualizationFunctions:
                 "m": 3,
             }[x_unit]
 
-            y_unit_factor = {"px": 1, "mm": pixel_size, "m": pixel_size / 1000}[y_unit]
+            unit_factor_y = {"px": 1, "mm": pixel_size, "m": pixel_size / 1000}[y_unit]
 
             y_unit_label = {
                 "px": "Y [px]",
@@ -5127,8 +5317,8 @@ class VisualizationFunctions:
                 "vx": [group["vx"].to_numpy() for _, group in grouped_label],
                 "vy": [group["vy"].to_numpy() for _, group in grouped_label],
                 "label": list(group["label"].unique() for _, group in grouped_label),
-                "x_unit": x_unit_factor,
-                "y_unit": y_unit_factor,
+                "x_unit": unit_factor_x,
+                "y_unit": unit_factor_y,
                 "x_label": f"{x_unit_label}",
                 "y_label": f"{y_unit_label}",
                 "min_decimals_x": min_decimals_x,
@@ -5136,101 +5326,35 @@ class VisualizationFunctions:
             }
             results.append(data_dict)
 
+            if save_data_name is not None:
+                output_file = Path(save_data_name)
+                if not output_file.parent.exists():
+                    print("Folder not exist")
+                
+                for lbl, group in sub_df.groupby("label"):
+
+                    group = group.sort_values("frame")
+                
+                    df = pd.DataFrame(
+                        {
+                            x_unit: group["frame"].values * time_interval,
+                            f"position_x_{x_unit}": group["x"].values * unit_factor_x,
+                            f"position_y_{y_unit}": group["y"].values * unit_factor_y,
+                        }
+                    )
+
+                    output_dir = Path(save_data_name).parent
+                    base_name = Path(save_data_name).stem
+                    suffix = Path(save_data_name).suffix
+                    output_file = output_dir / f"{base_name}_lbl_{lbl}{suffix}"
+
+                    print(output_file)
+
+                    if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                    elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                    else : df.to_csv(output_file, index=False, encoding="utf-8")
+
         return results
-
-        # colors = cm.get_cmap("tab10")
-
-        # for i, data in enumerate(dataframe):
-
-        #     mask_keys = [
-        #         "frame", "main_path", "name", "time", "label",
-        #         "x", "y", "vx", "vy", "diameter_mean",
-        #         ]
-
-        #     if isinstance(frames, int):
-        #         frames = [frames]
-        #     if frames is None:
-        #         frames = [dataframe["frame"].unique()]
-        #     if not isinstance(frames, (int, np.ndarray, list)):
-        #         msg = "'frames' must be int, list or ndarray of int"
-        #         raise TypeError(msg)
-
-        #     if labels == "all":
-        #         labels = sorted(data["label"].unique())
-
-        #     mask_frames = data["frame"].isin(frames)
-        #     mask_labels = data["frame"].isin(labels)
-        #     sub_df = data.loc[mask_frames & mask_labels, mask_keys].copy()
-        #     frames = sub_df["frame"].unique()
-
-        #     name = Path(f"{sub_df['main_path'].unique()[0]}\\{sub_df['name'].unique()[0]}")
-        #     img = self._load_image(name, invert=False, rotate_image=rotate)
-
-        #     # data_dict = {
-        #     #     "image": img,
-        #     #     "x": [[]],
-        #     #     "y": [[]],
-        #     #     "vx": [[]],
-        #     #     "vy": [[]],
-        #     #     "diameter_mean": [[]],
-        #     #     "label": [[]],
-        #     #     "x_unit": "px",
-        #     #     "y_unit": "px",
-        #     #     "x_label": "X $[px]$",
-        #     #     "y_label": "Y $[px]$",
-        #     # }
-
-        #     data_dict = []
-
-        #     for j, lbl in enumerate(labels):
-
-        #         df = sub_df[sub_df["label"] == lbl].copy()
-
-        #         data_dict.append(df)
-
-        #         # if x_unit == "px":
-        #         #     x = df["x"]
-        #         # elif x_unit == "mm":
-        #         #     x = df["x"] * pixel_size
-        #         # elif x_unit == "m":
-        #         #     x = df["x"] * pixel_size / 1000
-
-        #         # if y_unit == "px":
-        #         #     y = df["y"]
-        #         # elif y_unit == "mm":
-        #         #     y = df["y"] * pixel_size
-        #         # elif y_unit == "m":
-        #         #     y = df["y"] * pixel_size / 1000
-
-        #         # if x_unit == "px":
-        #         #     vx = df["vx"]
-        #         # elif x_unit == "mm":
-        #         #     vx = df["vx"] * pixel_size
-        #         # elif x_unit == "m":
-        #         #     vx = df["vx"] * pixel_size / 1000
-
-        #         # if y_unit == "px":
-        #         #     vy = df["y"]
-        #         # elif y_unit == "mm":
-        #         #     vy = df["vy"] * pixel_size
-        #         # elif y_unit == "m":
-        #         #     vy = df["vy"] * pixel_size / 1000
-
-        #         # if y_unit == "px":
-        #         #     d = df["diameter_mean"]
-        #         # elif y_unit == "mm":
-        #         #     d = df["diameter_mean"] * pixel_size
-        #         # elif y_unit == "m":
-        #         #     d = df["diameter_mean"] * pixel_size / 1000
-
-        #         # data_dict["x"].append(x)
-        #         # data_dict["y"].append(y)
-        #         # data_dict["vx"].append(vx)
-        #         # data_dict["vy"].append(vy)
-        #         # data_dict["label"].append(lbl)
-        #         # data_dict["diameter_mean"].append(d)
-
-        # return data_dict
 
     def Visualize_mass(
         self,
@@ -5422,6 +5546,7 @@ class VisualizationFunctions:
         do_plot_error: bool = False,
         do_smooth: bool = False,
         mode: str = "together",
+        save_data_name: str = None,
     ):
 
         vel_altitude = []
@@ -5601,28 +5726,20 @@ class VisualizationFunctions:
                 "y_unit_2": unit_factor_y_2,
             }
 
-            for lbl, group in grouped_label:
-                output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Velocity_run_{4}_label_{lbl}.csv"
-                output_file = Path(output_file)
-                df = pd.DataFrame(
-                    {
-                        "frame": group["frame"].to_numpy(),
-                        "velocity_p [px/s]": group["velocity"].to_numpy(),
-                        "velocity_p [mm/s]": group["velocity"].to_numpy() * pixel_size,
-                        "diameter_p [px]": group["diameter"].to_numpy(),
-                        "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
-                        "velocity_f [m/s]": group["vel_altitude"] if vel is not None else None,
-                    }
-                )
+            if save_data_name is not None:
 
-                table = pa.Table.from_pandas(df)
-                pq.write_table(table, output_file)
-
-                table = pq.read_table(output_file)
-                df = table.to_pandas()
-                if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
-                elif sys.plateform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
-                else : df.to_csv(output_file, index=False, encoding="utf-8")
+                for lbl, group in grouped_label:
+                    output_file = Path(save_data_name)
+                    df = pd.DataFrame(
+                        {
+                            x_unit: group["frame"].to_numpy() * unit_factor_x,
+                            f"velocity_p_{x_unit}": group["velocity"].to_numpy() * unit_factor_y,
+                            f"velocity_f_{unit_factor_y_2}": group["vel_altitude"] if vel is not None else None,
+                        }
+                    )
+                    if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                    elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                    else : df.to_csv(output_file, index=False, encoding="utf-8")
 
             result.append(data_dict)
 
@@ -5646,6 +5763,7 @@ class VisualizationFunctions:
         do_plot_error: bool = False,
         do_smooth: bool = False,
         mode: str = "together",
+        save_data_name: str = None,
     ):
 
         if len(dataframe) > 10:
@@ -5725,17 +5843,17 @@ class VisualizationFunctions:
                 print("USE SUBPIXEL")
                 df["dx"] = (
                     df.groupby("label")["x_subpixel"].diff().fillna(0.0)
-                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                )
                 df["dy"] = (
                     df.groupby("label")["y_subpixel"].diff().fillna(0.0)
-                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                )
             else:
                 df["dx"] = (
                     df.groupby("label")["x"].diff().fillna(0.0)
-                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                )
                 df["dy"] = (
                     df.groupby("label")["y"].diff().fillna(0.0)
-                )  # .where(lambda x: x.abs() >= 1.0, 0.0)
+                )
 
             df["vx"] = df.groupby("label")["dx"].transform(lambda x: x / dt)
             df["vy"] = df.groupby("label")["dy"].transform(lambda x: x / dt)
@@ -5746,16 +5864,25 @@ class VisualizationFunctions:
             )
             df["velocity"] = df.groupby("label")["disp"].transform(lambda x: x / dt)
 
-            # diameter = sub_df.groupby("label")["diameter_mean"].unique().values
             df["diameter"] = df["label"].map(
                 sub_df.groupby("label")["diameter_mean"].unique()
             )
 
-            df["ax"] = df.groupby("label")["vx"].transform(lambda x: x / dt)
-            df["ay"] = df.groupby("label")["vy"].transform(lambda x: x / dt)
-            df["acceleration"] = df.groupby("label")["velocity"].transform(
-                lambda x: x / dt
-            )
+            df["ax"] = (
+                    df.groupby("label")["vx"].diff().fillna(0.0)
+                )
+            df["ay"] = (
+                    df.groupby("label")["vy"].diff().fillna(0.0)
+                )
+            df["acceleration"] = (
+                    df.groupby("label")["velocity"].diff().fillna(0.0)
+                )
+                
+            # df["ax"] = df.groupby("label")["vx"].transform(lambda x: x / dt)
+            # df["ay"] = df.groupby("label")["vy"].transform(lambda x: x / dt)
+            # df["acceleration"] = df.groupby("label")["velocity"].transform(
+            #     lambda x: x / dt
+            # )
 
             # if len(df["acceleration"]) > 3:
             #     func_base = FitFunction()._get_fitting_function()["exp"]
@@ -5781,28 +5908,25 @@ class VisualizationFunctions:
                 "y_ticks_sci": True,
             }
 
-            for lbl, group in grouped_label:
-                output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Acceleration_run_{4}_label_{lbl}.csv"
-                output_file = Path(output_file)
-                df = pd.DataFrame(
-                    {
-                        "frame": group["frame"].to_numpy(),
-                        "acceleration_p [px/s]": group["acceleration"].to_numpy(),
-                        "acceleration_p [mm/s]": group["acceleration"].to_numpy() * pixel_size,
-                        "diameter_p [px]": group["diameter"].to_numpy(),
-                        "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
-                    }
-                )
+            if save_data_name is not None:
+                for lbl, group in grouped_label:
+                    output_file = Path(save_data_name)
+                    df = pd.DataFrame(
+                        {
+                            x_unit: group["frame"].to_numpy() * unit_factor_x,
+                            f"acceleration_p_{y_unit}": group["acceleration"].to_numpy() * unit_factor_y,
+                        }
+                    )
 
-                table = pa.Table.from_pandas(df)
-                pq.write_table(table, output_file)
+                    table = pa.Table.from_pandas(df)
+                    pq.write_table(table, output_file)
 
-                table = pq.read_table(output_file)
-                df = table.to_pandas()
-                if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
-                else : df.to_csv(output_file, index=False, encoding="latin-1")
+                    table = pq.read_table(output_file)
+                    df = table.to_pandas()
+                    if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                    else : df.to_csv(output_file, index=False, encoding="latin-1")
 
-            result.append(data_dict)
+                result.append(data_dict)
 
         return result
 
@@ -5824,6 +5948,7 @@ class VisualizationFunctions:
         do_plot_error: bool = False,
         do_smooth: bool = False,
         mode: str = "together",
+        save_data_name: str = None,
     ):
 
         if len(dataframe) > 10:
@@ -5959,26 +6084,19 @@ class VisualizationFunctions:
                 "y_ticks_sci": True,
             }
 
-            for lbl, group in grouped_label:
-                output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Momentum_run_{4}_label_{lbl}.csv"
-                output_file = Path(output_file)
-                df = pd.DataFrame(
-                    {
-                        "frame": group["frame"].to_numpy(),
-                        "momentum_p [px/s]": group["momentum"].to_numpy(),
-                        "momentum_p [mm/s]": group["momentum"].to_numpy() * pixel_size,
-                        "diameter_p [px]": group["diameter"].to_numpy(),
-                        "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
-                    }
-                )
+            if save_data_name is not None:
+                for lbl, group in grouped_label:
+                    output_file = Path(save_data_name)
+                    df = pd.DataFrame(
+                        {
+                            x_unit: group["frame"].to_numpy() * unit_factor_x,
+                            f"momentum_p_{y_unit}": group["momentum"].to_numpy() * unit_factor_y,
+                        }
+                    )
 
-                table = pa.Table.from_pandas(df)
-                pq.write_table(table, output_file)
-
-                table = pq.read_table(output_file)
-                df = table.to_pandas()
-                if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
-                else : df.to_csv(output_file, index=False, encoding="latin-1")
+                    if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                    elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                    else : df.to_csv(output_file, index=False, encoding="utf-8")
 
             result.append(data_dict)
 
@@ -6002,6 +6120,7 @@ class VisualizationFunctions:
         do_plot_error: bool = False,
         do_smooth: bool = False,
         mode: str = "together",
+        save_data_name: str = None,
     ):
 
         if len(dataframe) > 10:
@@ -6144,26 +6263,19 @@ class VisualizationFunctions:
                 "y_ticks_sci": True,
             }
 
-            for lbl, group in grouped_label:
-                output_file = f"/home/abad-ale/Documents/Images_analysis/GUI/Kinetic_run_{4}_label_{lbl}.csv"
-                output_file = Path(output_file)
-                df = pd.DataFrame(
-                    {
-                        "frame": group["frame"].to_numpy(),
-                        "kinetic_p [px/s]": group["kinetic"].to_numpy(),
-                        "kinetic_p [mm/s]": group["kinetic"].to_numpy() * pixel_size,
-                        "diameter_p [px]": group["diameter"].to_numpy(),
-                        "diameter_p [mm]": group["diameter"].to_numpy() * pixel_size,
-                    }
-                )
+            if save_data_name is not None:
+                for lbl, group in grouped_label:
+                    output_file = Path(save_data_name)
+                    df = pd.DataFrame(
+                        {
+                            x_unit: group["frame"].to_numpy() * unit_factor_x,
+                            f"kinetic_p_{y_unit}": group["kinetic"].to_numpy() * unit_factor_y,
+                        }
+                    )
 
-                table = pa.Table.from_pandas(df)
-                pq.write_table(table, output_file)
-
-                table = pq.read_table(output_file)
-                df = table.to_pandas()
-                if sys.plateform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
-                else : df.to_csv(output_file, index=False, encoding="latin-1")
+                    if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                    elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                    else : df.to_csv(output_file, index=False, encoding="utf-8")
 
             result.append(data_dict)
 
@@ -6456,6 +6568,7 @@ class VisualizationFunctions:
         do_save: bool = False,
         rotate: int = 0,
         crop: tuple = (1, 1),
+        save_data_name: str = None,
     ):
 
         if isinstance(frames, int):
@@ -6499,7 +6612,11 @@ class VisualizationFunctions:
             if sub_df.empty:
                 continue
 
-            x_unit_factor = {"px": 1, "mm": pixel_size, "m": pixel_size / 1000}[x_unit]
+            unit_factor_x = {
+                "px": 1,
+                "mm": pixel_size,
+                "m": pixel_size / 1000
+                }[x_unit]
 
             x_unit_label = {
                 "px": "X [px]",
@@ -6513,7 +6630,11 @@ class VisualizationFunctions:
                 "m": 3,
             }[x_unit]
 
-            y_unit_factor = {"px": 1, "mm": pixel_size, "m": pixel_size / 1000}[y_unit]
+            unit_factor_y = {
+                "px": 1,
+                "mm": pixel_size,
+                "m": pixel_size / 1000
+                }[y_unit]
 
             y_unit_label = {
                 "px": "Y [px]",
@@ -6543,14 +6664,42 @@ class VisualizationFunctions:
                 "x": [group["x"].to_numpy() for _, group in grouped],
                 "y": [group["y"].to_numpy() for _, group in grouped],
                 "label": [group["label"].unique() for _, group in grouped],
-                "x_unit": x_unit_factor,
-                "y_unit": y_unit_factor,
+                "x_unit": unit_factor_x,
+                "y_unit": unit_factor_y,
                 "x_label": f"{x_unit_label}",
                 "y_label": f"{y_unit_label}",
                 "min_decimals_x": min_decimals_x,
                 "min_decimals_y": min_decimals_y,
             }
             results.append(data_dict)
+
+            if save_data_name is not None:
+                output_file = Path(save_data_name)
+                if not output_file.parent.exists():
+                    print("Folder not exist")
+                
+                for lbl, group in sub_df.groupby("label"):
+
+                    group = group.sort_values("frame")
+                
+                    df = pd.DataFrame(
+                        {
+                            x_unit: group["frame"].values * time_interval,
+                            f"position_x_{x_unit}": group["x"].values * unit_factor_x,
+                            f"position_y_{y_unit}": group["y"].values * unit_factor_y,
+                        }
+                    )
+
+                    output_dir = Path(save_data_name).parent
+                    base_name = Path(save_data_name).stem
+                    suffix = Path(save_data_name).suffix
+                    output_file = output_dir / f"{base_name}_lbl_{lbl}{suffix}"
+
+                    print(output_file)
+
+                    if sys.platform == "linux": df.to_csv(output_file, index=False, encoding="utf-8")
+                    elif sys.platform == "win32": df.to_csv(output_file, index=False, encoding="latin-1")
+                    else : df.to_csv(output_file, index=False, encoding="utf-8")
 
             # compute distance
             # distances = [

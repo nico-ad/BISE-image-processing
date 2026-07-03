@@ -764,12 +764,20 @@ class HelperTab1(QWidget):
     
     def _update_statistics(self):
         """ Update statistics """
+
+        submin = "\u2098\U00001D62\u2099"
+        submax = "\u2098\u2090\u2093"
+        unit = "\u207B\u00B2"
         
         num_part = len(self.data)
         density = num_part / (np.prod(self.base_image.shape) * self.settings["table"]["pixel_size"]**2)
         
         self.num_part_per_frame.setText(f"{num_part:d} particles detected")
-        self.density_per_frame.setText(f"Particles density {density:.3f} mm^-2")
+        self.density_per_frame.setText(f"Particles density {density:.3f} mm{unit}")
+        self.diameters_in_frame.setText(
+            f"d{submin} = {self.data['diameter'].min() * self.settings['table']['pixel_size'] * 1000:.2e} \u00B5m "
+            f"| d{submax} = {self.data['diameter'].max() * self.settings['table']['pixel_size'] * 1000:.2e} \u00B5m"
+            )
         
     def _update_buttons_state(self) -> None:
         """ Enable/ desable buttons """

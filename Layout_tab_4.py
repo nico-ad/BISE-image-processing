@@ -105,6 +105,10 @@ class HelperTab4(QWidget):
                 "func": self.visualization_func.Visualize_coordination_number,
                 "settings": CoordinationNumberSettings(),
             },
+            "Particle density": {
+                "func": self.visualization_func.Visualize_density,
+                "settings": DensitySettings(),
+            },
             "Surface concentration": {
                 "func": self.visualization_func.Visualize_surface_concentration,
                 "settings": SurfaceConcentrationSettings(),
@@ -255,6 +259,7 @@ class HelperTab4(QWidget):
                 "Remaining fraction",
                 "Velocity flow",
                 "Friction velocity",
+                "Particle density",
                 "Surface concentration",
                 "Mean diameter",
                 "Velocity",
@@ -351,7 +356,7 @@ class HelperTab4(QWidget):
         acqFreq_layout.addWidget(self.acqFreq_textbox)
 
         acqFreq_layout.addStretch()
-        left_layout.addLayout(acqFreq_layout)   
+        left_layout.addLayout(acqFreq_layout)
 
         # ----- Options
         self.option_btn = QPushButton(tab_4)
@@ -371,7 +376,17 @@ class HelperTab4(QWidget):
 
         # ----- plot area
         self.plot_container = QWidget()
-        self.plot_layout = QVBoxLayout(self.plot_container)
+        right_layout = QVBoxLayout(self.plot_container)
+
+        # ----- data name to save
+        save_layout = QHBoxLayout()
+        self.graph_data_name_textbox = QLineEdit()
+        self.graph_data_name_textbox.setPlaceholderText("folder_1/folder_2/graph_data_name.csv")
+        self.graph_data_name_textbox.setFixedWidth(150)
+        save_layout.addWidget(self.graph_data_name_textbox)
+
+        save_layout.addStretch()
+        right_layout.addLayout(save_layout)
 
         self.viewer = ImageViewer(
             container_widget=self.plot_container,
@@ -613,6 +628,11 @@ class HelperTab4(QWidget):
                     x_unit=self.settings.x_axis,
                     y_unit=self.settings.y_axis,
                     velocity=self.velocity_profile if self.velocity_profile else None,
+                    save_data_name=(
+                        self.graph_data_name_textbox.text().strip()
+                        if self.graph_data_name_textbox.text().strip()
+                        else None
+                    ),
                 )
 
         self.viewer._display(data_list)
@@ -1963,6 +1983,26 @@ class CoordinationNumberSettings:
         self.y_axis = "frequency"
         self.z_axis = "time_s"
 
+class DensitySettings:
+    """Store configuration for particles density"""
+
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "frames",
+            "time",
+            "fric_velocity",
+            "flow_velocity",
+            "reynolds",
+        }
+        # Y axis
+        self.y_axis_options = {
+            "/mm2",
+            "/m2",
+        }
+        # default selection
+        self.x_axis = "time"
+        self.y_axis = "/mm2"
 
 class SurfaceConcentrationSettings:
     """Store configuration for particles surface concentration"""
