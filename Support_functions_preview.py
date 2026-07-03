@@ -116,7 +116,7 @@ class ParticleAnalyser:
             ax.set_ylabel("Y [px]", fontsize=20)
             plt.show()
         
-        def preprocess_img(img_gray, do_post_binary=True, do_plot=False):
+        def preprocess_img(img_gray, do_post_binary=False, do_plot=False):
 
             # compute bilateral filtering
             filter = 0.1
@@ -157,7 +157,7 @@ class ParticleAnalyser:
             return np.array(binary/np.max(binary)*255, dtype=np.uint8)
 
         # print(f"Image gray : {img_gray.shape}, {np.min(img_gray)}, {np.max(img_gray)}")
-        binary = preprocess_img(img_gray, do_post_binary=True)
+        binary = preprocess_img(img_gray, do_post_binary=False)
         # print(f"Image binarized : {binary.shape}, {np.min(binary)}, {np.max(binary)}")
         binary_labeled = measure.label(binary)
 
