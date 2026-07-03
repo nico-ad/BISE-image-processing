@@ -1232,73 +1232,73 @@ class ParticleAnalyser(QObject):
                     cost[cost > max_dist] = 1e2
 
                 # display cost matrix
-                if do_plot or True:
+                # if do_plot or True:
 
-                    _, ax = plt.subplots(figsize=(9, 9))
-                    ax.imshow(cost, cmap=plt.get_cmap("plasma"))
+                #     _, ax = plt.subplots(figsize=(9, 9))
+                #     ax.imshow(cost, cmap=plt.get_cmap("plasma"))
 
-                    ax.set_xticks(np.arange(-0.5, cost.shape[1], 1), minor=True)
-                    ax.set_yticks(np.arange(-0.5, cost.shape[0], 1), minor=True)
-                    ax.grid(True, which="minor", color="k")
+                #     ax.set_xticks(np.arange(-0.5, cost.shape[1], 1), minor=True)
+                #     ax.set_yticks(np.arange(-0.5, cost.shape[0], 1), minor=True)
+                #     ax.grid(True, which="minor", color="k")
 
-                    n_labels = max(cost.shape)
+                #     n_labels = max(cost.shape)
 
-                    if n_labels <= 10:
-                        base_map = plt.get_cmap("tab10")
-                    if 10 < n_labels <= 20:
-                        base_map = plt.get_cmap("tab20")
-                    elif n_labels > 20:
-                        base_map = plt.get_cmap("plasma")
+                #     if n_labels <= 10:
+                #         base_map = plt.get_cmap("tab10")
+                #     if 10 < n_labels <= 20:
+                #         base_map = plt.get_cmap("tab20")
+                #     elif n_labels > 20:
+                #         base_map = plt.get_cmap("plasma")
 
-                    ncolors = int(np.max(cost) - np.min(cost) + 1)
-                    colors = base_map(np.linspace(0, 1, ncolors))
-                    cmap = mcolors.ListedColormap(colors)
+                #     ncolors = int(np.max(cost) - np.min(cost) + 1)
+                #     colors = base_map(np.linspace(0, 1, ncolors))
+                #     cmap = mcolors.ListedColormap(colors)
 
-                    ax.set_xlim(-0.5, cost.shape[1]-0.5)
-                    ax.set_ylim(-0.5, cost.shape[0]-0.5)
+                #     ax.set_xlim(-0.5, cost.shape[1]-0.5)
+                #     ax.set_ylim(-0.5, cost.shape[0]-0.5)
 
-                    x_ticks = ax.get_xticks()[1:-1]
-                    y_ticks = ax.get_yticks()[1:-1]
+                #     x_ticks = ax.get_xticks()[1:-1]
+                #     y_ticks = ax.get_yticks()[1:-1]
 
-                    ax.set_xticks(x_ticks)
-                    ax.set_yticks(y_ticks)
+                #     ax.set_xticks(x_ticks)
+                #     ax.set_yticks(y_ticks)
 
-                    ax.set_xticklabels(
-                        [f"{x_tick:.0f}" for x_tick in x_ticks], fontsize=dict_fontsize["ticks"])
-                    ax.set_xlabel(
-                        "Particles detected in current frame", fontsize=dict_fontsize["label"]
-                        )
+                #     ax.set_xticklabels(
+                #         [f"{x_tick:.0f}" for x_tick in x_ticks], fontsize=dict_fontsize["ticks"])
+                #     ax.set_xlabel(
+                #         "Particles detected in current frame", fontsize=dict_fontsize["label"]
+                #         )
 
-                    ax.set_yticklabels(
-                        [f"{y_tick:.0f}" for y_tick in y_ticks], fontsize=dict_fontsize["ticks"])
-                    ax.set_ylabel(
-                        "Particles detected in next frame", fontsize=dict_fontsize["label"]
-                        )
+                #     ax.set_yticklabels(
+                #         [f"{y_tick:.0f}" for y_tick in y_ticks], fontsize=dict_fontsize["ticks"])
+                #     ax.set_ylabel(
+                #         "Particles detected in next frame", fontsize=dict_fontsize["label"]
+                #         )
 
-                    norm = mcolors.BoundaryNorm(
-                        np.arange(np.min(cost), np.max(cost) + 2, 1), ncolors=ncolors
-                    )
+                #     norm = mcolors.BoundaryNorm(
+                #         np.arange(np.min(cost), np.max(cost) + 2, 1), ncolors=ncolors
+                #     )
 
-                    norm = plt.Normalize(vmin=np.min(cost), vmax=np.max(cost))
-                    sm = plt.cm.ScalarMappable(
-                        cmap=plt.get_cmap("plasma"),
-                        norm=norm,
-                    )
-                    sm.set_array([])
-                    cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
-                    cbar_ticks = cbar.get_ticks()
-                    cbar.set_ticks(cbar_ticks)
-                    cbar.set_ticklabels(
-                        [f"{np.abs(cbar_tick):.0f}" for cbar_tick in cbar_ticks], fontsize=dict_fontsize["ticks"]
-                        )
-                    cbar.set_label(
-                        "Cost", fontsize=dict_fontsize["label"]
-                        )
+                #     norm = plt.Normalize(vmin=np.min(cost), vmax=np.max(cost))
+                #     sm = plt.cm.ScalarMappable(
+                #         cmap=plt.get_cmap("plasma"),
+                #         norm=norm,
+                #     )
+                #     sm.set_array([])
+                #     cbar = plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.01)
+                #     cbar_ticks = cbar.get_ticks()
+                #     cbar.set_ticks(cbar_ticks)
+                #     cbar.set_ticklabels(
+                #         [f"{np.abs(cbar_tick):.0f}" for cbar_tick in cbar_ticks], fontsize=dict_fontsize["ticks"]
+                #         )
+                #     cbar.set_label(
+                #         "Cost", fontsize=dict_fontsize["label"]
+                #         )
 
-                    # plt.show()
-                    plt.savefig(
-                        f"//home/abad-ale/Documents/Images_analysis/Essai_7/8000Hz/4x10mm3/1/Cost_matrix_frame_{t}_dist_{max_dist}.png"
-                    )
+                    # # plt.show()
+                    # plt.savefig(
+                    #     f"//home/abad-ale/Documents/Images_analysis/Essai_7/8000Hz/4x10mm3/1/Cost_matrix_frame_{t}_dist_{max_dist}.png"
+                    # )
 
                 gids = np.full(n, -1, dtype=int)
                 if not (
@@ -1402,17 +1402,17 @@ class ParticleAnalyser(QObject):
             cmap = mcolors.ListedColormap(colors)
             norm = mcolors.BoundaryNorm(np.arange(n_labels + 1) - 0.5, n_labels)
 
-            for frame_id, group_frames in df_tracked.groupby("frame"):
+            # for frame_id, group_frames in df_tracked.groupby("frame"):
 
-                _, ax = plt.subplots(figsize=(6, 6))
+            #     _, ax = plt.subplots(figsize=(6, 6))
 
-                # ----- add image
-                path_img = Path(
-                    group_frames["main_path"].unique()[0],
-                    group_frames["name"].unique()[0],
-                )
-                img = _load_image_core(path_img, invert=False)
-                ax.imshow(img, cmap="gray")
+            #     # ----- add image
+            #     path_img = Path(
+            #         group_frames["main_path"].unique()[0],
+            #         group_frames["name"].unique()[0],
+            #     )
+            #     img = _load_image_core(path_img, invert=False)
+            #     ax.imshow(img, cmap="gray")
 
                 # ----- add ROIs
                 # for roi in rois:
@@ -1428,48 +1428,48 @@ class ParticleAnalyser(QObject):
                 #     )
                 #     ax.add_patch(rect)
 
-                # ----- add labels
-                for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
-                    # add particle coordinates
-                    ax.scatter(
-                        group_labels["x"],
-                        group_labels["y"],
-                        color="tab:orange", # cmap(i),
-                        marker="o",
-                        alpha=1.0,
-                    )
+                # # ----- add labels
+                # for i, (_, group_labels) in enumerate(group_frames.groupby("label")):
+                #     # add particle coordinates
+                #     ax.scatter(
+                #         group_labels["x"],
+                #         group_labels["y"],
+                #         color="tab:orange", # cmap(i),
+                #         marker="o",
+                #         alpha=1.0,
+                #     )
 
-                    # ----- add circle per label
-                    for x, y, d in zip(
-                        group_labels["x"], group_labels["y"], group_labels["diameter"]
-                    ):
-                        # add equivalent diameter
-                        ax.add_patch(
-                            plt.Circle((x, y), d / 2, color="b", fill=False, lw=3)
-                            )
+                #     # ----- add circle per label
+                #     for x, y, d in zip(
+                #         group_labels["x"], group_labels["y"], group_labels["diameter"]
+                #     ):
+                #         # add equivalent diameter
+                #         ax.add_patch(
+                #             plt.Circle((x, y), d / 2, color="b", fill=False, lw=3)
+                #             )
 
-                        # add neighboor distance
-                        ax.add_patch(
-                            plt.Circle((x, y), max_dist, color="r", fill=False, lw=3)
-                        )
+                #         # add neighboor distance
+                #         ax.add_patch(
+                #             plt.Circle((x, y), max_dist, color="r", fill=False, lw=3)
+                #         )
 
-                ax.set_xlim(0, img_size[1])
-                ax.set_ylim(0, img_size[0])
+                # ax.set_xlim(0, img_size[1])
+                # ax.set_ylim(0, img_size[0])
 
-                x_ticks = ax.get_xticks()[:-1]
-                y_ticks = ax.get_yticks()[:-1]
+                # x_ticks = ax.get_xticks()[:-1]
+                # y_ticks = ax.get_yticks()[:-1]
 
-                ax.set_xticks(x_ticks)
-                ax.set_yticks(y_ticks)
+                # ax.set_xticks(x_ticks)
+                # ax.set_yticks(y_ticks)
 
-                ax.set_xlabel("x [px]", fontsize=dict_fontsize["label"])
-                ax.set_ylabel("y [px]", fontsize=dict_fontsize["label"])
-                ax.set_xticklabels(
-                    [f"{x_tick:.0f}" for x_tick in x_ticks], fontsize=dict_fontsize["ticks"]
-                    )
-                ax.set_yticklabels(
-                    [f"{y_tick:.0f}" for y_tick in y_ticks], fontsize=dict_fontsize["ticks"]
-                    )
+                # ax.set_xlabel("x [px]", fontsize=dict_fontsize["label"])
+                # ax.set_ylabel("y [px]", fontsize=dict_fontsize["label"])
+                # ax.set_xticklabels(
+                #     [f"{x_tick:.0f}" for x_tick in x_ticks], fontsize=dict_fontsize["ticks"]
+                #     )
+                # ax.set_yticklabels(
+                #     [f"{y_tick:.0f}" for y_tick in y_ticks], fontsize=dict_fontsize["ticks"]
+                #     )
 
                 # add colorbar
                 # sm = plt.cm.ScalarMappable(
@@ -1498,9 +1498,9 @@ class ParticleAnalyser(QObject):
                 #         )
 
                 # plt.show()
-                plt.savefig(
-                    f"//home/abad-ale/Documents/Images_analysis/Essai_7/8000Hz/4x10mm3/1/Assign_ID_frame_{frame_id}_full_labels.png"
-                )
+                # plt.savefig(
+                #     f"//home/abad-ale/Documents/Images_analysis/Essai_7/8000Hz/4x10mm3/1/Assign_ID_frame_{frame_id}_full_labels.png"
+                # )
 
         return df_tracked
 

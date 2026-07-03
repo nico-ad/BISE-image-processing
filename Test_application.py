@@ -22,7 +22,7 @@ class ParticleAnalysisApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowIcon(QIcon("ICON.png"))
+        # self.setWindowIcon(QIcon("Logo_BIRD_version_finale.png"))
         
         # set fonts
         self.font_tabs = QFont("Arial", 14)
@@ -97,7 +97,9 @@ class ParticleAnalysisApp(QMainWindow):
     
 def main():
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon("icons/Logo_BIRD_version_finale_icon.ico"))
     win = ParticleAnalysisApp()
+    win.setWindowIcon(QIcon("icons/Logo_BIRD_version_finale_icon.ico"))
     win.showMaximized()
     sys.exit(app.exec_())
     
