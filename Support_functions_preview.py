@@ -85,7 +85,7 @@ class ParticleAnalyser:
             img_raw = np.stack([img_raw]*3, axis=-1)
         # img_raw = np.array(Image.fromarray(img_raw).rotate(180))
         
-        if do_plot:
+        if do_plot and False:
             _, ax = plt.subplots()
             ax.imshow(img_raw, cmap="gray", origin="lower")
             xticks = ax.get_xticks()
@@ -102,7 +102,7 @@ class ParticleAnalyser:
             img_gray = ImageOps.invert(Image.fromarray(img).convert("L"))
         else: img_gray = Image.fromarray(img_raw).convert("L").rotate(180)
         img_gray = np.array(img_gray, dtype=np.uint8)
-        if do_plot:
+        if do_plot and False:
             _, ax = plt.subplots()
             ax.imshow(img_gray, cmap="gray", origin="lower")
             # ax.set_title("GRAY")
@@ -122,7 +122,7 @@ class ParticleAnalyser:
             filter = 0.1
             img_gray = self._bilateral_filtering(img_gray, filter, filter)
             # img_gray = np.array(img_gray, dtye=np.uint8)
-            if do_plot:
+            if do_plot and False:
                 _, ax = plt.subplots()
                 ax.imshow(img_gray, cmap="gray")
                 ax.set_title("BILATERAL")
@@ -130,7 +130,7 @@ class ParticleAnalyser:
             
             # binarisation
             binary = self._threshold_image(np.array(img_gray, dtype=np.uint8), chkbx)
-            if do_plot:
+            if do_plot and False:
                 _, ax = plt.subplots()
                 ax.imshow(binary, cmap="gray", origin="lower")
                 xticks = ax.get_xticks()
@@ -143,7 +143,7 @@ class ParticleAnalyser:
 
             if do_post_binary:
                 binary = self._postprocess_binary(binary, params, chkbx)
-                if do_plot:
+                if do_plot and False:
                     _, ax = plt.subplots()
                     ax.imshow(binary, cmap="gray", origin="lower")
                     xticks = ax.get_xticks()
@@ -157,7 +157,7 @@ class ParticleAnalyser:
             return np.array(binary/np.max(binary)*255, dtype=np.uint8)
 
         # print(f"Image gray : {img_gray.shape}, {np.min(img_gray)}, {np.max(img_gray)}")
-        binary = preprocess_img(img_gray, do_post_binary=False)
+        binary = preprocess_img(img_gray, do_post_binary=True)
         # print(f"Image binarized : {binary.shape}, {np.min(binary)}, {np.max(binary)}")
         binary_labeled = measure.label(binary)
 
@@ -219,7 +219,7 @@ class ParticleAnalyser:
         
         # watershed segmentation
         distance = distance_transform_edt(binary)
-        if do_plot:
+        if do_plot and False:
             _, ax = plt.subplots()
             ax.imshow(distance, cmap="gray", origin="lower")
             # ax.set_title("GRAY")
@@ -235,7 +235,7 @@ class ParticleAnalyser:
 
         
         mask = morphology.h_maxima(distance, h=params["h_max"])
-        if do_plot:
+        if do_plot and False:
             _, ax = plt.subplots()
             ax.imshow(mask, cmap="gray", origin="lower")
             # ax.set_title("GRAY")
@@ -251,7 +251,7 @@ class ParticleAnalyser:
 
         
         markers = measure.label(mask)
-        if do_plot:
+        if do_plot and False:
             _, ax = plt.subplots()
             ax.imshow(markers, cmap="gray", origin="lower")
             # ax.set_title("GRAY")
@@ -267,7 +267,7 @@ class ParticleAnalyser:
 
         
         labeled_image = watershed(-distance, markers, mask=binary)
-        if do_plot:
+        if do_plot and False:
             _, ax = plt.subplots()
             ax.imshow(labeled_image, cmap="gray", origin="lower")
             # ax.set_title("GRAY")
@@ -343,38 +343,43 @@ class ParticleAnalyser:
         else:
             return img_gray > img_gray/2
         
-    def _postprocess_binary(self, binary, params, chkbx):
+    def _postprocess_binary(self, binary, params, chkbx, do_plot=False):
         """ Apply binary cleaning : holes, border and small objects"""
         
         if chkbx["fill_holes"]:
             binary = binary_fill_holes(binary)
-            _, ax = plt.subplots()
-            ax.imshow(binary, cmap="gray", origin="lower")
-            # ax.set_title("GRAY")
-            xticks = ax.get_xticks()[1:-1]
-            yticks = ax.get_yticks()[1:-1]
-            ax.set_xticks(xticks)
-            ax.set_yticks(yticks)
-            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
-            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
-            ax.set_xlabel("X [px]", fontsize=20)
-            ax.set_ylabel("Y [px]", fontsize=20)
-            plt.show()
+
+            if do_plot and False:
+                _, ax = plt.subplots()
+                ax.imshow(binary, cmap="gray", origin="lower")
+                # ax.set_title("GRAY")
+                xticks = ax.get_xticks()[1:-1]
+                yticks = ax.get_yticks()[1:-1]
+                ax.set_xticks(xticks)
+                ax.set_yticks(yticks)
+                ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+                ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+                ax.set_xlabel("X [px]", fontsize=20)
+                ax.set_ylabel("Y [px]", fontsize=20)
+                plt.show()
+            
         if chkbx["remove_small"]:
             min_size = int(params.get("small_objects"))
             binary = morphology.remove_small_objects(binary, min_size)
-            _, ax = plt.subplots()
-            ax.imshow(binary, cmap="gray", origin="lower")
-            # ax.set_title("GRAY")
-            xticks = ax.get_xticks()[1:-1]
-            yticks = ax.get_yticks()[1:-1]
-            ax.set_xticks(xticks)
-            ax.set_yticks(yticks)
-            ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
-            ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
-            ax.set_xlabel("X [px]", fontsize=20)
-            ax.set_ylabel("Y [px]", fontsize=20)
-            plt.show()
+
+            if do_plot and False:
+                _, ax = plt.subplots()
+                ax.imshow(binary, cmap="gray", origin="lower")
+                # ax.set_title("GRAY")
+                xticks = ax.get_xticks()[1:-1]
+                yticks = ax.get_yticks()[1:-1]
+                ax.set_xticks(xticks)
+                ax.set_yticks(yticks)
+                ax.set_xticklabels([f"{xtick:.0f}" for xtick in xticks], fontsize=18)
+                ax.set_yticklabels([f"{ytick:.0f}" for ytick in yticks], fontsize=18)
+                ax.set_xlabel("X [px]", fontsize=20)
+                ax.set_ylabel("Y [px]", fontsize=20)
+                plt.show()
         if chkbx["clear_border"]:
             binary = clear_border(binary)
         return binary
