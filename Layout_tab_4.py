@@ -1,6 +1,7 @@
 # %% Import
 
 import sys
+import inspect
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QThread, QObject, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow
@@ -24,6 +25,7 @@ from PyQt5.QtWidgets import (
     QTreeView,
     QAbstractItemView,
     QListWidget,
+    QListWidgetItem,
     QSplitter,
     QSizePolicy,
     QDialog,
@@ -385,8 +387,26 @@ class HelperTab4(QWidget):
         self.graph_data_name_textbox.setFixedWidth(150)
         save_layout.addWidget(self.graph_data_name_textbox)
 
+        self.show_legend_checkbox = QCheckBox("Show legend")
+        self.show_legend_checkbox.setChecked(True)
+        self.show_legend_checkbox.setFont(self.parent.font_content)
+        self.show_legend_checkbox.toggled.connect(self._refresh_current_plot)
+        save_layout.addWidget(self.show_legend_checkbox)
+
         save_layout.addStretch()
         right_layout.addLayout(save_layout)
+
+        self.label_filter_title = QLabel("Particle labels")
+        self.label_filter_title.setFont(self.parent.font_content)
+        self.label_filter_title.setVisible(False)
+        right_layout.addWidget(self.label_filter_title)
+
+        self.label_filter_list = QListWidget()
+        self.label_filter_list.setSelectionMode(QAbstractItemView.NoSelection)
+        self.label_filter_list.setMaximumHeight(180)
+        self.label_filter_list.setVisible(False)
+        self.label_filter_list.itemChanged.connect(self._refresh_current_plot)
+        right_layout.addWidget(self.label_filter_list)
 
         self.viewer = ImageViewer(
             container_widget=self.plot_container,
@@ -523,17 +543,11 @@ class HelperTab4(QWidget):
 
             # lambda settings:
             if settings:
-                self.viewer._display(
-                    self.func(
-                        dataframe=self.data_to_plot["dataframe"],
-                        pixel_size=self.data_to_plot["pixel_size"],
-                        frames=self.data_to_plot["frames"],
-                        labels=self.data_to_plot["labels"],
-                        x_unit=self.settings.x_axis,
-                        y_unit=self.settings.y_axis,
-                        velocity=self.velocity_profile,
-                    )
+                data_list = self._run_visualization_function(
+                    include_save_data_name=False,
                 )
+                if data_list is not None:
+                    self._display_current_plot(data_list)
 
         dialog.settings_applied.connect(_handle_settings_applied)
         dialog.exec_()
@@ -619,25 +633,152 @@ class HelperTab4(QWidget):
             #     parameters = json.load(file)
 
             if self.func:
-                data_list = self.func(
-                    dataframe=self.data_to_plot["dataframe"],
-                    pixel_size=self.data_to_plot["pixel_size"],
-                    frames=self.data_to_plot["frames"],
-                    labels=self.data_to_plot["labels"],
-                    time_interval=1/self.data_to_plot["acquisition_freq"],
-                    x_unit=self.settings.x_axis,
-                    y_unit=self.settings.y_axis,
-                    velocity=self.velocity_profile if self.velocity_profile else None,
-                    save_data_name=(
-                        self.graph_data_name_textbox.text().strip()
-                        if self.graph_data_name_textbox.text().strip()
-                        else None
-                    ),
-                )
-
-        self.viewer._display(data_list)
+                data_list = self._run_visualization_function()
+                if data_list is not None:
+                    self._display_current_plot(data_list)
 
         self.option_btn.setEnabled(True)
+
+    def _display_current_plot(self, data_list: list):
+        """Display the latest plot data and refresh the scrollable label list."""
+
+        self.last_data_list = data_list
+        self._sync_label_filter_list()
+        self.viewer._display(
+            data_list,
+            show_legend=self.show_legend_checkbox.isChecked(),
+            visible_labels=self._selected_labels_from_filter(),
+        )
+
+    def _sync_label_filter_list(self):
+        """Populate the scrollable label list from the current 2D plot data."""
+
+        data_dict = None
+        if hasattr(self, "last_data_list"):
+            for item in self.last_data_list:
+                if item and "image" in item and "label" in item:
+                    data_dict = item
+                    break
+
+        if not data_dict:
+            self.label_filter_title.setVisible(False)
+            self.label_filter_list.setVisible(False)
+            self.label_filter_list.blockSignals(True)
+            self.label_filter_list.clear()
+            self.label_filter_list.blockSignals(False)
+            return
+
+        labels = sorted({int(label) for label in data_dict["label"]})
+        current_selected = self._selected_labels_from_filter()
+
+        self.label_filter_title.setVisible(True)
+        self.label_filter_list.setVisible(True)
+        self.label_filter_list.blockSignals(True)
+        self.label_filter_list.clear()
+
+        for label in labels:
+            item = QListWidgetItem(f"Label {label}")
+            item.setData(Qt.UserRole, label)
+            item.setFlags(
+                item.flags()
+                | Qt.ItemIsUserCheckable
+                | Qt.ItemIsEnabled
+                | Qt.ItemIsSelectable
+            )
+            item.setCheckState(
+                Qt.Checked if not current_selected or label in current_selected else Qt.Unchecked
+            )
+            self.label_filter_list.addItem(item)
+
+        self.label_filter_list.blockSignals(False)
+
+    def _selected_labels_from_filter(self):
+        """Return the checked labels in the scrollable legend list."""
+
+        if not hasattr(self, "label_filter_list"):
+            return None
+
+        selected = []
+        for index in range(self.label_filter_list.count()):
+            item = self.label_filter_list.item(index)
+            if item.checkState() == Qt.Checked:
+                selected.append(int(item.data(Qt.UserRole)))
+
+        return selected
+
+    def _refresh_current_plot(self, *args):
+        """Re-render the last plot when the legend checkbox changes."""
+
+        if not hasattr(self, "last_data_list") or not self.last_data_list:
+            return
+
+        self.viewer._display(
+            self.last_data_list,
+            show_legend=self.show_legend_checkbox.isChecked(),
+            visible_labels=self._selected_labels_from_filter(),
+        )
+
+    def _run_visualization_function(self, include_save_data_name: bool = True):
+        """Call the selected visualization with only the arguments it accepts."""
+
+        if not hasattr(self, "func") or self.func is None:
+            return None
+
+        kwargs = self._build_visualization_kwargs(
+            self.func,
+            include_save_data_name=include_save_data_name,
+        )
+
+        try:
+            return self.func(**kwargs)
+        except TypeError as error:
+            print(f"{self.func.__name__}: {error}")
+            return None
+
+    def _build_visualization_kwargs(
+        self,
+        func,
+        include_save_data_name: bool = True,
+    ):
+        """Adapt tab inputs to the visualization function signature."""
+
+        parameters = inspect.signature(func).parameters
+        loaded_dataframes = [
+            self._get_dataframe(path) for path in self.parent.files_list_dataframe
+        ]
+
+        kwargs = {}
+
+        if "dataframe" in parameters:
+            kwargs["dataframe"] = loaded_dataframes
+        if "path_dataframe" in parameters:
+            kwargs["path_dataframe"] = list(self.parent.files_list_dataframe)
+        if "pixel_size" in parameters:
+            kwargs["pixel_size"] = self.data_to_plot["pixel_size"]
+        if "frames" in parameters:
+            kwargs["frames"] = self.data_to_plot["frames"]
+        if "labels" in parameters:
+            kwargs["labels"] = self.data_to_plot["labels"]
+        if "time_interval" in parameters:
+            kwargs["time_interval"] = 1 / self.data_to_plot["acquisition_freq"]
+        if "x_unit" in parameters and hasattr(self, "settings") and self.settings:
+            kwargs["x_unit"] = self.settings.x_axis
+        if "y_unit" in parameters and hasattr(self, "settings") and self.settings:
+            kwargs["y_unit"] = self.settings.y_axis
+
+        if "velocity" in parameters:
+            if self.velocity_profile:
+                kwargs["velocity"] = self.velocity_profile
+            elif func.__name__ in {"Visualize_velocity_flow", "Visualize_friction_velocity"}:
+                print(f"{func.__name__}: velocity profile is not configured")
+                return None
+
+        if include_save_data_name and "save_data_name" in parameters:
+            save_name = self.graph_data_name_textbox.text().strip()
+            if save_name:
+                kwargs["save_data_name"] = save_name
+
+        return kwargs
 
     def _parse_labels(self, text):
         """Parse labels textbox"""
@@ -782,6 +923,13 @@ class ImageViewer(QWidget):
         """Diplay data even if 1dD or 2D data"""
 
         self._clear()
+        self.last_data_list = data_list
+        self.visible_labels = kwargs.get("visible_labels", None)
+
+        self.show_legend = kwargs.get(
+            "show_legend",
+            self.show_legend_checkbox.isChecked() if hasattr(self, "show_legend_checkbox") else True,
+        )
 
         self.fig = Figure(figsize=(4, 4), dpi=150)
 
@@ -806,7 +954,7 @@ class ImageViewer(QWidget):
             else:
                 msg = "No key word detected"
                 raise ValueError(msg)
-        
+
     def plot_1d(self, data_dict: dict):
         """Display 1d graph"""
 
@@ -849,6 +997,8 @@ class ImageViewer(QWidget):
         self.ax.imshow(data_dict["image"], origin="lower", cmap="gray", aspect="auto")
         self.ax.set_aspect("equal", adjustable="box")
 
+        visible_labels = None if self.visible_labels is None else set(self.visible_labels)
+
         if "label" in data_dict:
             # --- color map
             if len(data_dict["label"]) <= 10:
@@ -864,6 +1014,10 @@ class ImageViewer(QWidget):
 
             # ----- scatter plot position
             for i, lbl in enumerate(data_dict["label"]):
+                lbl_value = int(lbl)
+                if visible_labels is not None and lbl_value not in visible_labels:
+                    continue
+
                 data_x = data_dict["x"][i]
                 data_y = data_dict["y"][i]
 
@@ -875,7 +1029,7 @@ class ImageViewer(QWidget):
                 self.ax.scatter(
                     data_all[:, 0],
                     data_all[:, 1],
-                    label=f"Label {int(lbl)}",
+                    label=f"Label {lbl_value}",
                 )
 
                 # ----- display vectors
@@ -1002,10 +1156,15 @@ class ImageViewer(QWidget):
             data_dict["y_label"], fontsize=self.dict_fontsize["label"]
             )
 
-        self.ax.legend(
-            # handles=legend_elements, #[f"{1*mag_order} m/s"]*len(legend_elements),
-            fontsize=self.dict_fontsize["legend"]
-        )
+        if self.show_legend:
+            self.ax.legend(
+                # handles=legend_elements, #[f"{1*mag_order} m/s"]*len(legend_elements),
+                fontsize=self.dict_fontsize["legend"],
+                loc="upper left",
+                bbox_to_anchor=(1.02, 1.0),
+                borderaxespad=0.0,
+            )
+            self.fig.subplots_adjust(right=0.78)
 
         self.fig.tight_layout()
 
@@ -1429,7 +1588,7 @@ class ImageViewer(QWidget):
             )
 
         _, labels_legend = self.ax.get_legend_handles_labels()
-        if labels_legend:
+        if labels_legend and self.show_legend:
             self.ax.legend(fontsize=self.dict_fontsize["legend"])
         
         plt.subplots_adjust(0, 0, 1, 1)

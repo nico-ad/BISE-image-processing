@@ -151,20 +151,15 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
     def _bilateral_filtering(img, sigma_s, sigma_r):
         """Compute bilateral filtering"""
 
-        img = img.astype(np.float64)
+        # The previous NumPy broadcast implementation allocated a huge
+        # intermediate array per worker and could exhaust RAM quickly on
+        # large images. OpenCV keeps the filtering in native code and avoids
+        # building that dense temporary volume in Python.
+        img_u8 = np.clip(img, 0, 255).astype(np.uint8)
+        sigma_color = max(float(sigma_r) * 255.0, 1.0)
+        sigma_space = max(float(sigma_s), 1.0)
 
-        # spatial component
-        # img_smooth = gaussian_filter(img, sigma=sigma_s)
-
-        # intensity component
-        diff = img[:, :, None] - img[:, None, :]
-        weights = np.exp(-(diff**2) / (2 * sigma_r**2))
-
-        # normalisation
-        weights_sum = np.sum(weights, axis=2)
-        img_filtered = np.sum(weights * img[:, :, None], axis=2) / weights_sum
-
-        return img_filtered
+        return cv2.bilateralFilter(img_u8, d=0, sigmaColor=sigma_color, sigmaSpace=sigma_space)
 
     def _convert_coordinates(min_row, min_col, max_row, max_col):
         x = min_row
@@ -183,6 +178,13 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
     def _refine_coordinates(x, y, img, bb):
         refined_coords = []
         region = img[bb[0] : bb[0] + bb[1], bb[2] : bb[2] + bb[3]]
+
+        # curve_fit needs at least as many data points as free parameters.
+        # Tiny detections can produce 1xN / Nx1 / 2x2 crops, so fall back to
+        # the centroid instead of aborting the whole worker.
+        if region.size < 6:
+            return [(x, y)]
+
         x_grid, y_grid = np.meshgrid(
             np.arange(bb[0], bb[0] + bb[1]), np.arange(bb[2], bb[2] + bb[3])
         )
@@ -209,7 +211,7 @@ def _process_image_core(img_path: str, params: dict) -> pd.DataFrame:
 
             refined_coords.append((refined_x, refined_y))
 
-        except RuntimeError:
+        except (RuntimeError, TypeError, ValueError):
             refined_coords.append((x, y))
 
         return refined_coords
@@ -679,7 +681,7 @@ class ParticleAnalyser(QObject):
             if isinstance(list_images, str):
                 list_images = [list_images]
 
-            self.list_images = list_images[:1000]
+            self.list_images = list_images
 
             if output_path.exists():
                 print(f"File {output_path.name} already exists in {output_path.parent}")
@@ -774,7 +776,12 @@ class ParticleAnalyser(QObject):
         output_file = output_file.parent / output_file.name
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
+        if output_file.exists():
+            output_file.unlink()
+
         processed = 0
+        buffer = []
+        total_written = 0
 
         # ==========
         # multiprocessing with context manager
@@ -784,8 +791,6 @@ class ParticleAnalyser(QObject):
             processes=self.total_num_workers,
             maxtasksperchild=500,
         ) as pool:
-            writer = None
-
             for index, df in pool.imap_unordered(
                 _worker_wrapper,
                 args_list,
@@ -796,13 +801,18 @@ class ParticleAnalyser(QObject):
                     pool.terminate()
                     break
 
-                # write parquet stream
-                table = pa.Table.from_pandas(df)
+                buffer.append(df)
 
-                if writer is None:
-                    writer = pq.ParquetWriter(output_file, table.schema)
-
-                writer.write_table(table)
+                if len(buffer) >= save_every:
+                    batch_df = pd.concat(buffer, ignore_index=True)
+                    batch_df.to_csv(
+                        output_file,
+                        index=False,
+                        mode="w" if total_written == 0 else "a",
+                        header=total_written == 0,
+                    )
+                    total_written += len(batch_df)
+                    buffer.clear()
 
                 processed += 1
 
@@ -817,12 +827,15 @@ class ParticleAnalyser(QObject):
                     print(f"Signal emit : {processed}")
                     self.display_signal.emit(processed)
 
-        if writer is not None:
-            writer.close()
-
-        table = pq.read_table(output_file)
-        df = table.to_pandas()
-        df.to_csv(output_file, index=False)
+        if buffer:
+            batch_df = pd.concat(buffer, ignore_index=True)
+            batch_df.to_csv(
+                output_file,
+                index=False,
+                mode="w" if total_written == 0 else "a",
+                header=total_written == 0,
+            )
+            total_written += len(batch_df)
 
         self.finished_signal.emit()
         print(f"Detection of all images is over : {processed}")
