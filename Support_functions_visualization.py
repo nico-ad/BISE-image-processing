@@ -1076,7 +1076,7 @@ class VisualizationFunctions:
         labels: int | list | np.ndarray = None,
         time_interval: float = 1 / 8000,
         pixel_size: float = None,
-        x_unit: str = "coord_num",
+        x_unit: str = "frames",
         y_unit: str = "frequency",
         z_unit: str = "frames",
         normalize: bool = True,
@@ -1131,11 +1131,14 @@ class VisualizationFunctions:
 
             sub_df = self._compute_coordination_number(df=sub_df, eps=15, ratio_frame=1)
             # sub_df.dropna(inplace=True)
-            time_interval = sub_df["dt"].unique()
+            time_interval_values = sub_df["dt"].dropna().unique()
+            time_interval_value = float(time_interval_values[0]) if len(time_interval_values) else float(time_interval)
 
             # ----- unit factor
             unit_factor_x = {
-                "coord_num": 1,
+                "frames": 1,
+                "time_s": time_interval_value,
+                "time_ms": time_interval_value * 1000,
             }[x_unit]
 
             unit_factor_y = {
@@ -1151,7 +1154,9 @@ class VisualizationFunctions:
 
             # ----- unit label
             unit_label_x = {
-                "coord_num": "Coordination number",
+                "frames": "Frames",
+                "time_s": "Time $[s]$",
+                "time_ms": "Time $[ms]$",
             }[x_unit]
 
             unit_label_y = {
@@ -1159,46 +1164,54 @@ class VisualizationFunctions:
                 "frequency": "Frequency",
             }[y_unit]
 
-            unit_label_z = {
-                "frames": "Frames",
-                "time_s": "Time $[s]$",
-                "time_ms": "Time $[ms]$",
-            }[z_unit]
-
             df = sub_df.sort_values(by="frame")
-            grouped_frames = df.groupby("frame")
+            grouped_frames = list(df.groupby("frame"))
 
             max_coord_number = np.max(df["coordination"].unique())
-            # print(f"Max number of coordination number : {max_coord_number}")
+            coord_bins = np.arange(0, max_coord_number + 1, 1, dtype=int)
+
+            series_labels = [str(coord_num) for coord_num in coord_bins]
+            x_values = []
+            y_values = []
+
+            x_series = []
+            for frame_id, _ in grouped_frames:
+                x_series.append(int(frame_id))
+
+            x_series = np.asarray(x_series)
+
+            counts_by_frame = []
+            for _, group in grouped_frames:
+                counts, _ = np.histogram(
+                    group["coordination"],
+                    bins=np.arange(0, max_coord_number + 2, 1, dtype=int),
+                    density=False,
+                )
+                if normalize:
+                    total = counts.sum()
+                    counts = counts / total if total else counts
+                counts_by_frame.append(counts)
+
+            counts_by_frame = np.asarray(counts_by_frame)
+
+            for coord_index, coord_num in enumerate(coord_bins):
+                x_values.append(x_series)
+                y_values.append(counts_by_frame[:, coord_index])
+
+            y_series_label = "Frequency" if normalize else "Counts"
+
             data_dict = {
-                "hist_3d": True,
-                "x": [
-                    np.histogram(
-                        group["coordination"],
-                        bins=np.arange(0, max_coord_number + 2, 1, dtype=int),
-                        density=False,
-                    )[1]
-                    for _, group in grouped_frames
-                ],
-                "y": [
-                    np.histogram(
-                        group["coordination"],
-                        bins=np.arange(0, max_coord_number + 2, 1, dtype=int),
-                        density=False,
-                    )[0]
-                    for _, group in grouped_frames
-                ],
-                "z": [group["frame"].unique() for _, group in grouped_frames],
-                "run": [i],
-                # "fit": [fit_func],
+                "curves": True,
+                "x": x_values,
+                "y": y_values,
+                "series_label": series_labels,
                 "x_log": False,
-                "nomalize": True,
                 "x_unit": unit_factor_x,
                 "y_unit": unit_factor_y,
-                "z_unit": unit_factor_z,
                 "x_label": unit_label_x,
-                "y_label": unit_label_y,
-                "z_label": unit_label_z,
+                "y_label": y_series_label,
+                "min_decimals_x": 0,
+                "min_decimals_y": 3,
             }
 
             # # display
@@ -2470,23 +2483,23 @@ class VisualizationFunctions:
                     continue
 
                 # voronoi
-                vor = Voronoi(pts)
+                try:
+                    vor = Voronoi(pts)
+                except Exception:
+                    vors.append(None)
+                    density_maps.append(None)
+                    continue
+
                 vors.append(vor)
 
-                ridges = [
-                    vor.vertices[r]
-                    for r in vor.ridge_vertices
-                    if len(r) == 2 and -1 not in r
-                ]
-
                 # ----- density map
+                density_map = None
                 densities = []
                 if do_density_map:
                     for region_index in vor.point_region:
                         region = vor.regions[region_index]
 
                         if not region or -1 in region:
-                            density_maps.append(0)
                             continue
 
                         polygon = Polygon(vor.vertices[region])
@@ -2501,21 +2514,24 @@ class VisualizationFunctions:
 
                     densities = np.array(densities)
 
-                    if len(densities) != len(vor.points):
-                        density_maps.append(None)
-                    densities = np.clip(densities, 0, np.percentile(densities, 99))
-                    # densities_norm = (densities - densities.min()) / (densities.max() - densities.min() + 1e-9)
+                    if len(densities) == len(vor.points) and len(densities) > 0:
+                        densities = np.clip(densities, 0, np.percentile(densities, 99))
+                        # densities_norm = (densities - densities.min()) / (densities.max() - densities.min() + 1e-9)
 
-                    # ----- create mesh
-                    pts = vor.points
-                    nx, ny = img.shape[1], img.shape[0]
+                        # ----- create mesh
+                        pts = vor.points
+                        nx, ny = img.shape[1], img.shape[0]
 
-                    x = np.linspace(pts[:, 0].min(), pts[:, 0].max(), nx)
-                    y = np.linspace(pts[:, 1].min(), pts[:, 1].max(), ny)
-                    X, Y = np.meshgrid(x, y)
+                        x = np.linspace(pts[:, 0].min(), pts[:, 0].max(), nx)
+                        y = np.linspace(pts[:, 1].min(), pts[:, 1].max(), ny)
+                        X, Y = np.meshgrid(x, y)
 
-                    Z = griddata(pts, densities, (X, Y), method="cubic")
-                    density_maps.append(Z)
+                        try:
+                            density_map = griddata(pts, densities, (X, Y), method="cubic")
+                        except Exception:
+                            density_map = None
+
+                density_maps.append(density_map)
 
             data_dict = {
                 "image": img,

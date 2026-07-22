@@ -27,6 +27,7 @@ from PyQt5.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QSplitter,
+    QListWidgetItem,
     QSizePolicy,
     QDialog,
     QHeaderView,
@@ -408,6 +409,24 @@ class HelperTab4(QWidget):
         self.label_filter_list.itemChanged.connect(self._refresh_current_plot)
         right_layout.addWidget(self.label_filter_list)
 
+        label_filter_buttons = QHBoxLayout()
+        self.select_all_labels_btn = QPushButton("Select all")
+        self.select_all_labels_btn.setFixedWidth(100)
+        self.select_all_labels_btn.clicked.connect(self._select_all_labels)
+        label_filter_buttons.addWidget(self.select_all_labels_btn)
+
+        self.unselect_all_labels_btn = QPushButton("Unselect all")
+        self.unselect_all_labels_btn.setFixedWidth(100)
+        self.unselect_all_labels_btn.clicked.connect(self._unselect_all_labels)
+        label_filter_buttons.addWidget(self.unselect_all_labels_btn)
+
+        right_layout.addLayout(label_filter_buttons)
+
+        self.export_plot_btn = QPushButton("Export plotted data")
+        self.export_plot_btn.setFixedWidth(180)
+        self.export_plot_btn.clicked.connect(self._export_plotted_data)
+        right_layout.addWidget(self.export_plot_btn)
+
         self.viewer = ImageViewer(
             container_widget=self.plot_container,
             pixel_size=0.006,
@@ -648,6 +667,10 @@ class HelperTab4(QWidget):
             data_list,
             show_legend=self.show_legend_checkbox.isChecked(),
             visible_labels=self._selected_labels_from_filter(),
+            x_axis_notation=getattr(self.settings, "x_axis_notation", "general") if self.settings else "general",
+            y_axis_notation=getattr(self.settings, "y_axis_notation", "general") if self.settings else "general",
+            x_axis_precision=getattr(self.settings, "x_axis_precision", 3) if self.settings else 3,
+            y_axis_precision=getattr(self.settings, "y_axis_precision", 3) if self.settings else 3,
         )
 
     def _sync_label_filter_list(self):
@@ -706,6 +729,120 @@ class HelperTab4(QWidget):
 
         return selected
 
+    def _select_all_labels(self):
+        """Check every label entry in the list."""
+
+        if not hasattr(self, "label_filter_list"):
+            return
+
+        self.label_filter_list.blockSignals(True)
+        for index in range(self.label_filter_list.count()):
+            self.label_filter_list.item(index).setCheckState(Qt.Checked)
+        self.label_filter_list.blockSignals(False)
+        self._refresh_current_plot()
+
+    def _unselect_all_labels(self):
+        """Uncheck every label entry in the list."""
+
+        if not hasattr(self, "label_filter_list"):
+            return
+
+        self.label_filter_list.blockSignals(True)
+        for index in range(self.label_filter_list.count()):
+            self.label_filter_list.item(index).setCheckState(Qt.Unchecked)
+        self.label_filter_list.blockSignals(False)
+        self._refresh_current_plot()
+
+    def _build_plotted_dataframe(self):
+        """Flatten the current plotted data into a CSV-friendly table."""
+
+        if not hasattr(self, "last_data_list") or not self.last_data_list:
+            return None
+
+        visible_labels = self._selected_labels_from_filter()
+        rows = []
+
+        for series_index, data_dict in enumerate(self.last_data_list):
+            if not data_dict:
+                continue
+
+            if "image" in data_dict and "label" in data_dict:
+                for label_index, label_value in enumerate(data_dict["label"]):
+                    label_int = int(label_value)
+                    if visible_labels is not None and label_int not in visible_labels:
+                        continue
+
+                    x_values = np.asarray(data_dict["x"][label_index]).ravel()
+                    y_values = np.asarray(data_dict["y"][label_index]).ravel()
+
+                    for point_index, (x_value, y_value) in enumerate(zip(x_values, y_values)):
+                        rows.append(
+                            {
+                                "series": series_index,
+                                "label": label_int,
+                                "point_index": point_index,
+                                "x": x_value,
+                                "y": y_value,
+                            }
+                        )
+                continue
+
+            if data_dict.get("curves") or data_dict.get("histogram") or data_dict.get("hist_3d"):
+                x_factor = data_dict.get("x_unit", 1.0)
+                y_factor = data_dict.get("y_unit", 1.0)
+
+                for item_index, x_values in enumerate(data_dict.get("x", [])):
+                    y_values = data_dict.get("y", [])[item_index] if data_dict.get("y") else []
+                    x_array = np.asarray(x_values).ravel() * x_factor
+                    y_array = np.asarray(y_values).ravel() * y_factor
+                    for point_index, (x_value, y_value) in enumerate(zip(x_array, y_array)):
+                        row = {
+                            "series": series_index,
+                            "curve": item_index,
+                            "point_index": point_index,
+                            "x": x_value,
+                            "y": y_value,
+                        }
+                        if data_dict.get("label"):
+                            row["label"] = data_dict["label"][item_index]
+                        if data_dict.get("run"):
+                            row["run"] = data_dict["run"][item_index]
+                        if data_dict.get("x_label"):
+                            row["x_label"] = data_dict["x_label"]
+                        if data_dict.get("y_label"):
+                            row["y_label"] = data_dict["y_label"]
+                        rows.append(row)
+
+        if not rows:
+            return None
+
+        return pd.DataFrame(rows)
+
+    def _export_plotted_data(self):
+        """Save the current plotted data to a new CSV file."""
+
+        dataframe = self._build_plotted_dataframe()
+        if dataframe is None or dataframe.empty:
+            return
+
+        default_name = "plotted_data.csv"
+        if hasattr(self, "graph_data_name_textbox"):
+            candidate = self.graph_data_name_textbox.text().strip()
+            if candidate:
+                default_name = candidate if candidate.lower().endswith(".csv") else f"{candidate}.csv"
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save plotted data",
+            default_name,
+            "CSV files (*.csv)",
+        )
+
+        if not file_path:
+            return
+
+        dataframe.to_csv(file_path, index=False)
+
     def _refresh_current_plot(self, *args):
         """Re-render the last plot when the legend checkbox changes."""
 
@@ -716,6 +853,10 @@ class HelperTab4(QWidget):
             self.last_data_list,
             show_legend=self.show_legend_checkbox.isChecked(),
             visible_labels=self._selected_labels_from_filter(),
+            x_axis_notation=getattr(self.settings, "x_axis_notation", "general") if self.settings else "general",
+            y_axis_notation=getattr(self.settings, "y_axis_notation", "general") if self.settings else "general",
+            x_axis_precision=getattr(self.settings, "x_axis_precision", 3) if self.settings else 3,
+            y_axis_precision=getattr(self.settings, "y_axis_precision", 3) if self.settings else 3,
         )
 
     def _run_visualization_function(self, include_save_data_name: bool = True):
@@ -826,6 +967,11 @@ class ImageViewer(QWidget):
 
         self.canvases = []
         self.toolbars = []
+        self.visible_labels = None
+        self.x_axis_notation = "general"
+        self.y_axis_notation = "general"
+        self.x_axis_precision = 3
+        self.y_axis_precision = 3
 
         self.dict_fontsize = {
             "label": 18,
@@ -925,6 +1071,10 @@ class ImageViewer(QWidget):
         self._clear()
         self.last_data_list = data_list
         self.visible_labels = kwargs.get("visible_labels", None)
+        self.x_axis_notation = kwargs.get("x_axis_notation", self.x_axis_notation)
+        self.y_axis_notation = kwargs.get("y_axis_notation", self.y_axis_notation)
+        self.x_axis_precision = kwargs.get("x_axis_precision", self.x_axis_precision)
+        self.y_axis_precision = kwargs.get("y_axis_precision", self.y_axis_precision)
 
         self.show_legend = kwargs.get(
             "show_legend",
@@ -1063,7 +1213,6 @@ class ImageViewer(QWidget):
                     )
 
                     mag_order = self._order_of_magnitude(max(norm))
-                    print(max(norm), mag_order)
                     qk = self.ax.quiverkey(
                         Q,
                         X=0.9,
@@ -1138,7 +1287,12 @@ class ImageViewer(QWidget):
         x_ticks = self.ax.get_xticks()[1:-1]
         self.ax.set_xticks(x_ticks)
         self.ax.set_xticklabels(
-                self._number_of_ticks(x_ticks, factor=data_dict["x_unit"], min_decimal=data_dict["min_decimals_x"]),
+                self._number_of_ticks(
+                    x_ticks,
+                    factor=data_dict["x_unit"],
+                    notation=self.x_axis_notation,
+                    precision=self.x_axis_precision,
+                ),
                 fontsize=self.dict_fontsize["ticks"],
             )
         self.ax.set_xlabel(
@@ -1177,12 +1331,13 @@ class ImageViewer(QWidget):
         self.canvases.append(canvas)
         self.toolbars.append(toolbar)
 
-        # canvas.mpl_connect("motion_notify_event",
-        #                    lambda event: self.on_move(event, ax, img, status_label),
-        # )
-        # canvas.mpl_connect("scroll_event",
-        #                    lambda event: self.on_scroll(event, ax, canvas),
-        # )
+        status_label = QLabel()
+        toolbar.addWidget(status_label)
+
+        canvas.mpl_connect(
+            "motion_notify_event",
+            lambda event: self._on_move(event, self.ax, data_dict["image"], status_label),
+        )
 
     def plot_hist3d(self, data_dict: dict, inc=0):
         """Plot histogram in 3D"""
@@ -1361,6 +1516,16 @@ class ImageViewer(QWidget):
 
         self.ax = self.fig.add_subplot(111)
 
+        series_labels = data_dict.get("series_label")
+        n = len(data_dict.get("x", []))
+
+        if n <= 10:
+            colors = cm.get_cmap("tab10")
+        elif n <= 20:
+            colors = cm.get_cmap("tab20")
+        else:
+            colors = cm.get_cmap("plasma")
+
         if "label" in data_dict:
             if len(data_dict["label"]) <= 10:
                 colors = cm.get_cmap("tab10")
@@ -1380,18 +1545,21 @@ class ImageViewer(QWidget):
             n = len(data_dict["run"])
 
         for i in range(n):
+            if series_labels and i < len(series_labels):
+                legend_label = series_labels[i]
+            elif "run" in data_dict and len(data_dict["run"]) > 1:
+                legend_label = f"Run {i}"
+            elif "label" in data_dict:
+                legend_label = f"Label {data_dict['label'][i][0]}"
+            else:
+                legend_label = None
+
             self.ax.plot(
                 data_dict["x"][i],
                 data_dict["y"][i],
                 color=colors(i),
                 linewidth=3,
-                label=(
-                    f"Run {i}"
-                    if "run" in data_dict and len(data_dict["run"]) > 1
-                    else f"Label {data_dict['label'][i][0]}"
-                    if "label" in data_dict
-                    else None
-                )
+                label=legend_label,
             )
 
             if "fit" in data_dict:
@@ -1530,7 +1698,12 @@ class ImageViewer(QWidget):
             )  # self.ax.get_xticks()
             self.ax.set_xticks(x_ticks)
             self.ax.set_xticklabels(
-                [f"{x_tick:.0f}" for x_tick in x_ticks],
+                self._number_of_ticks(
+                    x_ticks,
+                    factor=1.0,
+                    notation=self.x_axis_notation,
+                    precision=self.x_axis_precision,
+                ),
                 fontsize=self.dict_fontsize["ticks"],
             )
             self.ax.set_xlabel(
@@ -1541,7 +1714,12 @@ class ImageViewer(QWidget):
             y_ticks = self.ax.get_yticks()[1:-1]
             self.ax.set_yticks(y_ticks)
             self.ax.set_yticklabels(
-                [f"{y_tick:.2f}" for y_tick in y_ticks],
+                self._number_of_ticks(
+                    y_ticks,
+                    factor=1.0,
+                    notation=self.y_axis_notation,
+                    precision=self.y_axis_precision,
+                ),
                 fontsize=self.dict_fontsize["ticks"],
             )
             self.ax.set_ylabel(
@@ -1567,9 +1745,13 @@ class ImageViewer(QWidget):
             self.ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(number_ticks))
             x_ticks = self.ax.get_xticks()[1:]
             self.ax.set_xticks(x_ticks)
-            print(x_ticks, data_dict["x_unit"], data_dict["min_decimals_x"], data_dict["x_ticks_sci"])
             self.ax.set_xticklabels(
-                self._number_of_ticks(x_ticks, factor=data_dict["x_unit"], min_decimal=data_dict["min_decimals_x"], sci=data_dict["x_ticks_sci"]),
+                    self._number_of_ticks(
+                        x_ticks,
+                        factor=data_dict["x_unit"],
+                        notation=self.x_axis_notation,
+                        precision=self.x_axis_precision,
+                    ),
                 fontsize=self.dict_fontsize["ticks"],
             )
             self.ax.set_xlabel(
@@ -1580,7 +1762,12 @@ class ImageViewer(QWidget):
             y_ticks = self.ax.get_yticks()[1:-1]
             self.ax.set_yticks(y_ticks)
             self.ax.set_yticklabels(
-                self._number_of_ticks(y_ticks, factor=data_dict["y_unit"], min_decimal=data_dict["min_decimals_y"], sci=data_dict["y_ticks_sci"]),
+                    self._number_of_ticks(
+                        y_ticks,
+                        factor=data_dict["y_unit"],
+                        notation=self.y_axis_notation,
+                        precision=self.y_axis_precision,
+                    ),
                 fontsize=self.dict_fontsize["ticks"],
             )
             self.ax.set_ylabel(
@@ -1593,19 +1780,26 @@ class ImageViewer(QWidget):
         
         plt.subplots_adjust(0, 0, 1, 1)
 
-    def _number_of_ticks(self, ticks, factor=1.0, min_decimal=0, number_ticks=5, sci=False):
-        """ Adapt number of ticks """
+    def _number_of_ticks(
+        self,
+        ticks,
+        factor=1.0,
+        notation="general",
+        precision=3,
+        min_decimal=None,
+        sci=None,
+    ):
+        """Format tick labels with significant figures in general or scientific notation."""
 
-        inc = min_decimal
-        while True:
-            
-            if sci: temp_ticks = [f"{tick*factor:.{inc}e}" for tick in ticks]
-            else: temp_ticks = [f"{tick*factor:.{inc}f}" for tick in ticks]
+        if min_decimal is not None:
+            precision = min_decimal
+        if sci is not None:
+            notation = "scientific" if sci else "general"
 
-            if len(np.unique(temp_ticks)) == len(ticks):
-                return temp_ticks
-            
-            inc += 1
+        sig_figs = max(int(precision), 1)
+        specifier = "e" if notation == "scientific" else "g"
+
+        return [f"{tick * factor:.{sig_figs}{specifier}}" for tick in ticks]
 
 class SupportFunctions:
     def __init__(self):
@@ -1849,6 +2043,15 @@ class OptionDialog(QDialog):
 
             print(self.settings)
 
+            if not hasattr(self.settings, "x_axis_notation"):
+                self.settings.x_axis_notation = "general"
+            if not hasattr(self.settings, "y_axis_notation"):
+                self.settings.y_axis_notation = "general"
+            if not hasattr(self.settings, "x_axis_precision"):
+                self.settings.x_axis_precision = 3
+            if not hasattr(self.settings, "y_axis_precision"):
+                self.settings.y_axis_precision = 3
+
             # ----- X axis
             tab2_layout.addWidget(QLabel("X axis"))
             self.x_combo = QComboBox()
@@ -1860,6 +2063,20 @@ class OptionDialog(QDialog):
             self.x_combo.setCurrentIndex(idx)
             tab2_layout.addWidget(self.x_combo)
 
+            tab2_layout.addWidget(QLabel("X axis tick notation"))
+            self.x_notation_combo = QComboBox()
+            self.x_notation_combo.addItem("General / decimal", "general")
+            self.x_notation_combo.addItem("Scientific", "scientific")
+            idx = self.x_notation_combo.findData(self.settings.x_axis_notation)
+            self.x_notation_combo.setCurrentIndex(idx)
+            tab2_layout.addWidget(self.x_notation_combo)
+
+            tab2_layout.addWidget(QLabel("X axis significant figures"))
+            self.x_precision_spin = QSpinBox()
+            self.x_precision_spin.setRange(0, 10)
+            self.x_precision_spin.setValue(self.settings.x_axis_precision)
+            tab2_layout.addWidget(self.x_precision_spin)
+
             # ----- Y axis
             tab2_layout.addWidget(QLabel("Y axis"))
             self.y_combo = QComboBox()
@@ -1870,6 +2087,20 @@ class OptionDialog(QDialog):
             idx = self.y_combo.findData(self.settings.y_axis)
             self.y_combo.setCurrentIndex(idx)
             tab2_layout.addWidget(self.y_combo)
+
+            tab2_layout.addWidget(QLabel("Y axis tick notation"))
+            self.y_notation_combo = QComboBox()
+            self.y_notation_combo.addItem("General / decimal", "general")
+            self.y_notation_combo.addItem("Scientific", "scientific")
+            idx = self.y_notation_combo.findData(self.settings.y_axis_notation)
+            self.y_notation_combo.setCurrentIndex(idx)
+            tab2_layout.addWidget(self.y_notation_combo)
+
+            tab2_layout.addWidget(QLabel("Y axis significant figures"))
+            self.y_precision_spin = QSpinBox()
+            self.y_precision_spin.setRange(0, 10)
+            self.y_precision_spin.setValue(self.settings.y_axis_precision)
+            tab2_layout.addWidget(self.y_precision_spin)
 
             # # ----- Z options
             # if self.settings.z_axis_options:
@@ -1885,6 +2116,10 @@ class OptionDialog(QDialog):
 
             self.x_combo.currentTextChanged.connect(self._update_x)
             self.y_combo.currentTextChanged.connect(self._update_y)
+            self.x_notation_combo.currentTextChanged.connect(self._update_x_notation)
+            self.y_notation_combo.currentTextChanged.connect(self._update_y_notation)
+            self.x_precision_spin.valueChanged.connect(self._update_x_precision)
+            self.y_precision_spin.valueChanged.connect(self._update_y_precision)
 
         # ----- Add tabs
         self.tabs.addTab(tab1, "Velocity file")
@@ -1981,17 +2216,41 @@ class OptionDialog(QDialog):
         # pick up values from UI
         self.settings.x_axis = self.x_combo.currentData()
         self.settings.y_axis = self.y_combo.currentData()
+        self.settings.x_axis_notation = self.x_notation_combo.currentData()
+        self.settings.y_axis_notation = self.y_notation_combo.currentData()
+        self.settings.x_axis_precision = self.x_precision_spin.value()
+        self.settings.y_axis_precision = self.y_precision_spin.value()
 
         # redraw figure
         self.settings_applied.emit(self.settings, self.velocity_files)
 
-    def _update_x(self):
+    def _update_x(self, *args):
         """Update unit in x axis"""
         self.settings.x_axis = self.x_combo.currentData()
 
-    def _update_y(self):
+    def _update_y(self, *args):
         """Update unit in y axis"""
         self.settings.y_axis = self.y_combo.currentData()
+
+    def _update_x_notation(self, *args):
+        """Update x axis notation."""
+
+        self.settings.x_axis_notation = self.x_notation_combo.currentData()
+
+    def _update_y_notation(self, *args):
+        """Update y axis notation."""
+
+        self.settings.y_axis_notation = self.y_notation_combo.currentData()
+
+    def _update_x_precision(self, *args):
+        """Update x axis precision."""
+
+        self.settings.x_axis_precision = self.x_precision_spin.value()
+
+    def _update_y_precision(self, *args):
+        """Update y axis precision."""
+
+        self.settings.y_axis_precision = self.y_precision_spin.value()
 
 
 class HistogramSettings:
@@ -2124,23 +2383,18 @@ class CoordinationNumberSettings:
     def __init__(self):
         # X axis
         self.x_axis_options = {
-            "coord_num",
+            "Frames": "frames",
+            "Time [s]": "time_s",
+            "Time [ms]": "time_ms",
         }
         # Y axis
         self.y_axis_options = {
-            "count",
-            "frequency",
-        }
-        # Z axis
-        self.z_axis_options = {
-            "frames",
-            "time_s",
-            "time_ms",
+            "Count": "count",
+            "Frequency": "frequency",
         }
         # default selection
-        self.x_axis = "coord_num"
+        self.x_axis = "frames"
         self.y_axis = "frequency"
-        self.z_axis = "time_s"
 
 class DensitySettings:
     """Store configuration for particles density"""

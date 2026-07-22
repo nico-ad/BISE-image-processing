@@ -971,7 +971,7 @@ class OptionDialog(QDialog):
 
         # initialize default parameters
         self.default_params = [
-            ("Images range", "images_range", [0, 21837], "", None, list),
+            ("Images range", "images_range", [0, 34939], "", None, list),
             ("Acquisition frequency", "acq_frequency", 8000, "Hz", None, int),
             ("Circularity thresh", "circularity_thresh", [0.2, 1.0], "", None, list),
             ("Small objects", "small_objects", 20, "px", None, int),
