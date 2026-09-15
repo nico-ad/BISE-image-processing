@@ -104,9 +104,13 @@ class HelperTab4(QWidget):
                 "func": self.visualization_func.Visualize_mean_free_path,
                 "settings": MeanFreePathParticleSettings(),
             },
-            "Coordination number": {
+            "Coordination number fraction": {
                 "func": self.visualization_func.Visualize_coordination_number,
                 "settings": CoordinationNumberSettings(),
+            },
+            "Coordination number": {
+                "func": self.visualization_func.Visualize_coordination_number_raw,
+                "settings": RawCoordinationNumberSettings(),
             },
             "Particle density": {
                 "func": self.visualization_func.Visualize_density,
@@ -256,6 +260,7 @@ class HelperTab4(QWidget):
                 "Number of labels",
                 "Mean inter-particle distance",
                 "Mean free path",
+                "Coordination number fraction",
                 "Coordination number",
                 "Collision frequency",
                 "Resuspended fraction",
@@ -2395,6 +2400,26 @@ class CoordinationNumberSettings:
         # default selection
         self.x_axis = "frames"
         self.y_axis = "frequency"
+
+
+class RawCoordinationNumberSettings:
+    """Store configuration for raw coordination number counts"""
+
+    def __init__(self):
+        # X axis
+        self.x_axis_options = {
+            "Frames": "frames",
+            "Time [s]": "time_s",
+            "Time [ms]": "time_ms",
+        }
+        # Y axis
+        self.y_axis_options = {
+            "Count": "count",
+            "Frequency": "frequency",
+        }
+        # default selection
+        self.x_axis = "frames"
+        self.y_axis = "count"
 
 class DensitySettings:
     """Store configuration for particles density"""

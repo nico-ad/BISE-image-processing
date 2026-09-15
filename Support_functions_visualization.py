@@ -219,7 +219,7 @@ class VisualizationFunctions:
             tree = cKDTree(pts)
             coord = np.zeros(len(group), dtype=int)
 
-            # define max radius
+            # Use the largest particle in each pair as the search radius.
             r_max = d.max()
             r_max += 0.1 * r_max
 
@@ -230,6 +230,8 @@ class VisualizationFunctions:
                     j
                     for j in neighbors
                     if np.linalg.norm((pts[j] - pts[i])) >= (d[i] + eps) / 2
+                    and np.linalg.norm(pts[j] - pts[i])
+                    <= 1.1 * max(d[i], d[j])
                 ]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
@@ -1129,7 +1131,7 @@ class VisualizationFunctions:
             if sub_df.empty:
                 continue
 
-            sub_df = self._compute_coordination_number(df=sub_df, eps=15, ratio_frame=1)
+            sub_df = self._compute_coordination_number(df=sub_df, eps=0, ratio_frame=1)
             # sub_df.dropna(inplace=True)
             time_interval_values = sub_df["dt"].dropna().unique()
             time_interval_value = float(time_interval_values[0]) if len(time_interval_values) else float(time_interval)
@@ -1248,6 +1250,31 @@ class VisualizationFunctions:
             result.append(data_dict)
 
         return result
+
+    def Visualize_coordination_number_raw(
+        self,
+        dataframe: pd.DataFrame = None,
+        frames: int | list | np.ndarray = None,
+        labels: int | list | np.ndarray = None,
+        time_interval: float = 1 / 8000,
+        pixel_size: float = None,
+        x_unit: str = "frames",
+        y_unit: str = "count",
+        z_unit: str = "frames",
+        velocity: pd.DataFrame = None,
+    ) -> list:
+        return self.Visualize_coordination_number(
+            dataframe=dataframe,
+            frames=frames,
+            labels=labels,
+            time_interval=time_interval,
+            pixel_size=pixel_size,
+            x_unit=x_unit,
+            y_unit=y_unit,
+            z_unit=z_unit,
+            normalize=False,
+            velocity=velocity,
+        )
 
     def Concentration_vs_number_collision(
         self,

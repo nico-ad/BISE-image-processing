@@ -1141,6 +1141,7 @@ class ParticleAnalyser(QObject):
         except Exception as e:
             print(f"Error occured : {e}")
             traceback.print_exc()
+            raise
 
         print(final_path)
         return str(final_path)
@@ -1206,8 +1207,11 @@ class ParticleAnalyser(QObject):
 
             args = [(i, roi, df, max_dist) for i, roi in enumerate(rois)]
 
-            with mp.Pool(processes=nproc) as pool:
-                results = pool.map(ParticleAnalyser._track_one_roi, args)
+            if nproc == 1:
+                results = [ParticleAnalyser._track_one_roi(arg) for arg in args]
+            else:
+                with mp.Pool(processes=nproc) as pool:
+                    results = pool.map(ParticleAnalyser._track_one_roi, args)
 
             results = [r for r in results if r is not None]
             return pd.concat(results).sort_index()
@@ -1844,7 +1848,7 @@ class ParticleAnalyser(QObject):
             tree = cKDTree(pts)
             coord = np.zeros(len(group), dtype=int)
 
-            # define max raduis
+            # Use the largest particle in each pair as the search radius.
             r_max = d.max() + 0.1 * d.max()
 
             for i in range(len(group)):
@@ -1854,6 +1858,8 @@ class ParticleAnalyser(QObject):
                     j
                     for j in neighbors
                     if np.linalg.norm(pts[j] - pts[i]) >= (d[i] / 2)
+                    and np.linalg.norm(pts[j] - pts[i])
+                    <= 1.1 * max(d[i], d[j])
                 ]
                 coord[i] = len(neighbors)
             df.loc[group.index, "coordination"] = coord
