@@ -15,7 +15,7 @@ TIME_INTERVAL = 1 / ACQUISITION_FREQUENCY
 
 # The GUI recomputes velocity after sorting each track by frame. Do the same
 # before packing so notebook users do not depend on the misaligned CSV column.
-cols_needed = ["frame", "label", "x", "y", "dt", "cluster_id"]
+cols_needed = ["frame", "label", "x", "y", "dt", "cluster_id", "coordination"]
 chunks = pd.read_csv(CSV_PATH, usecols=cols_needed, chunksize=500_000)
 df = pd.concat(chunks, ignore_index=True)
 df = df.sort_values(["label", "frame"]).reset_index(drop=True)
@@ -33,11 +33,12 @@ df["acceleration"] = (
 )
 df["time"] = df["frame"] * TIME_INTERVAL
 df["cluster_id"] = df["cluster_id"].fillna(0.0)
+df["coordination"] = df["coordination"].fillna(0.0)
 
 packed_columns = [
     "frame", "time", "label", "x", "y", "dt", "dx", "dy",
     "vx", "vy", "velocity", "ax", "ay", "acceleration",
-    "cluster_id"
+    "cluster_id", "coordination"
 ]
 df[packed_columns].to_parquet(
     parquet_output_name or "velocity_data.parquet",
